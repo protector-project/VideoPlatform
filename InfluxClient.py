@@ -16,12 +16,12 @@ class InfluxClient:
         except Exception as e:
             print(e)
 
-    def insertAnomaly(self, cameraName, value, clipName):
+    def insertAnomaly(self, cameraName, value, clipName, timestamp):
         json_body = [
             {
                 "measurement": "anomaly",
                 "tags": {"camera": cameraName, "file_name": clipName},
-                "fields": {"score": value},
+                "fields": {"score": value, "video_timestamp": timestamp},
             }
         ]
         self.client.write_points(json_body)
@@ -36,7 +36,7 @@ class InfluxClient:
         ]
         self.client.write_points(json_body)
 
-    def insertObjects(self, camera_name, clip_name, results, labelfunc):
+    def insertObjects(self, camera_name, clip_name, results, labelfunc, timestamp):
         json_body = []
         labels, cord = results
         real_labels = [labelfunc(l) for l in labels]
@@ -52,6 +52,7 @@ class InfluxClient:
                     },
                     "fields": {
                         "value": v,
+                        "video_timestamp": timestamp
                     },
                 }
             )

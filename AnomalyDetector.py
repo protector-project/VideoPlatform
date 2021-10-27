@@ -6,7 +6,6 @@ import cv2
 import numpy as np
 import torch
 import torch.nn as nn
-from vidgear.gears import CamGear
 
 from model.base_model import *
 

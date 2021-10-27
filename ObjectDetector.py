@@ -1,4 +1,3 @@
-from itertools import count
 import torch
 import cv2
 
