@@ -17,11 +17,13 @@ class InfluxClient:
             print(e)
 
     def insertAnomaly(self, cameraName, value, clipName, timestamp):
+        service_url = "http://localhost:5000"
+        url = service_url + "/" + clipName + "/" + str(timestamp)
         json_body = [
             {
                 "measurement": "anomaly",
                 "tags": {"camera": cameraName, "file_name": clipName},
-                "fields": {"score": value, "video_timestamp": timestamp},
+                "fields": {"score": value, "video_timestamp": timestamp, "url": url},
             }
         ]
         self.client.write_points(json_body)

@@ -11,9 +11,9 @@ from model.base_model import *
 
 
 class AnomalyDetector:
-    def __init__(self):
+    def __init__(self, model_dir):
         self.MPN_model_dir = (
-            "pre_trained_models/mpn_piazza_2_sett_3_last.pt"
+            model_dir
         )
         self.MPN_model = None
         self.device = "cuda" if torch.cuda.is_available() else "cpu"

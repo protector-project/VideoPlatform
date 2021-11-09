@@ -1,12 +1,49 @@
+import argparse
+import os.path
+
 import cv2
 
-from AnomalyDetector import AnomalyDetector
+from AnomalyDetection.AnomalyDetector import AnomalyDetector
 from InfluxClient import InfluxClient
-from ObjectDetector import ObjectDetector
+from ObjectDetection.ObjectDetector import ObjectDetector
 
-USE_DATABASE = True
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "-I",
+    "--input_filepath",
+    type=str,
+    required=True,
+    help="The path to the video file to process",
+)
+parser.add_argument(
+    "-N",
+    "--input_name",
+    type=str,
+    required=True,
+    help="The name of the place of the video",
+)
+parser.add_argument(
+    "-AM",
+    "--anomaly_model",
+    type=str,
+    required=True,
+    help="The path to the anomaly model",
+)
 
-a = AnomalyDetector()
+args = parser.parse_args()
+
+if not os.path.isfile(args.input_filepath):
+    print("Video File Not Found")
+    exit()
+
+if not os.path.isfile(args.anomaly_model):
+    print("Anomaly Model File Not Found")
+    exit()
+
+USE_DATABASE = False
+
+# a = AnomalyDetector("pre_trained_models\mpn_piazza_2_sett_3_last.pt")
+a = AnomalyDetector(args.anomaly_model)
 o = ObjectDetector()
 
 if USE_DATABASE:
@@ -16,8 +53,11 @@ if USE_DATABASE:
 count = -20
 
 ### Video Info
-video_file = "video_samples/rec-piazza-fiera-1-20210930T0730-300-mjpeg.avi"
-cam_name = "piazza-fiera"
+# video_file = "video_samples/rec-piazza-fiera-1-20210930T0730-300-mjpeg.avi"
+video_file = args.input_filepath
+# cam_name = "piazza-fiera"
+cam_name = args.input_name
+
 
 ### Video capture
 cap = cv2.VideoCapture(video_file)
