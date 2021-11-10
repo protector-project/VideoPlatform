@@ -13,7 +13,7 @@ class ObjectDetector:
         Loads Yolo5 model from pytorch hub.
         :return: Trained Pytorch model.
         """
-        model = torch.hub.load("ultralytics/yolov5", "yolov5x6", pretrained=True)
+        model = torch.hub.load("ultralytics/yolov5", "yolov5n", pretrained=True)
         self.model = model
 
     def score_frame(self, frame):

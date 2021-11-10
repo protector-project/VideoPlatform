@@ -71,6 +71,7 @@ while frame_exists:
         r = a.lastResult()
         # r = a.previewResults()
         img = a.plotAnomaly(img, r[-1])
+        print(r[-1])
         if USE_DATABASE:
             i.insertAnomaly(cam_name, r[-1], video_file, frame_time)
     count += 1
@@ -80,10 +81,10 @@ while frame_exists:
         i.insertHumans(cam_name, count_label)
         i.insertObjects(cam_name, video_file, results, o.class_to_label, frame_time)
     frame = o.plot_boxes(results, img)
-    cv2.imshow("image", img)
-    key = cv2.waitKey(1) & 0xFF
-    if key == ord("q"):
-        break
+    # cv2.imshow("image", img)
+    # key = cv2.waitKey(1) & 0xFF
+    # if key == ord("q"):
+    #     break
     frame_exists, img = cap.read()
 
 cv2.destroyAllWindows()
