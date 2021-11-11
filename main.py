@@ -29,6 +29,27 @@ parser.add_argument(
     required=True,
     help="The path to the anomaly model",
 )
+parser.add_argument(
+    "-DH",
+    "--database_host",
+    type=str,
+    required=True,
+    help="IP address of the database",
+)
+parser.add_argument(
+    "-DP",
+    "--database_port",
+    type=str,
+    required=True,
+    help="Port number of the database",
+)
+parser.add_argument(
+    "-DN",
+    "--database_name",
+    type=str,
+    required=True,
+    help="Name of the Database",
+)
 
 args = parser.parse_args()
 
@@ -40,14 +61,18 @@ if not os.path.isfile(args.anomaly_model):
     print("Anomaly Model File Not Found")
     exit()
 
-USE_DATABASE = False
+USE_DATABASE = True
 
 # a = AnomalyDetector("pre_trained_models\mpn_piazza_2_sett_3_last.pt")
 a = AnomalyDetector(args.anomaly_model)
 o = ObjectDetector()
 
 if USE_DATABASE:
-    i = InfluxClient(host="192.168.15.95", port=8086, database="protector")
+    i = InfluxClient(
+        host=args.database_host,
+        port=int(args.database_port),
+        database=args.database_name,
+    )
     i.createConnection()
 
 count = -20
@@ -71,7 +96,6 @@ while frame_exists:
         r = a.lastResult()
         # r = a.previewResults()
         img = a.plotAnomaly(img, r[-1])
-        print(r[-1])
         if USE_DATABASE:
             i.insertAnomaly(cam_name, r[-1], video_file, frame_time)
     count += 1
