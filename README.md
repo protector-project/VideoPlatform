@@ -1,5 +1,7 @@
 # PROTECTOR VIDEO PROCESSING
 
+[//]: # (This is a comment, it will not be included)
+
 ## Requirements
 
 We highly recommend the use of GPU to processing video. We recommend install the NVIDIA tool:
