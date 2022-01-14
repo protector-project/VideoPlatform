@@ -7,7 +7,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from model.base_model import *
+from models.base_model import *
 
 
 class AnomalyDetector:
