@@ -13,7 +13,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import seaborn as sns
 from torch.nn import functional as F
-from .layers import *
+from .mpn_layers import *
 
 
 def mean_distance(a, b, weight=None, training=True):
