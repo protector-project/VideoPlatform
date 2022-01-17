@@ -1,4 +1,3 @@
-
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -10,11 +9,12 @@ import cv2
 import argparse
 import torch
 
+from tqdm import tqdm
+
 from lib.object_detector.object_detector import ObjectDetector
 from lib.anomaly_detector.anomaly_detector import AnomalyDetector
 from lib.influx.influx_client import InfluxClient
-from lib.utils.datasets.dataset_yolo import LoadImages
-
+from lib.utils.datasets.dataset import LoadImages
 from lib.utils.torch_utils import select_device
 
 
@@ -45,8 +45,7 @@ def run(
 
     # Load model
     device = select_device(device)
-    # a = AnomalyDetector("pre_trained_models\mpn_piazza_2_sett_3_last.pt")
-    # a = AnomalyDetector(args.anomaly_model)
+    anomaly_detector = AnomalyDetector(anomaly_model, device)
     object_detector = ObjectDetector(detection_model, device)
 
     if USE_DATABASE:
@@ -63,7 +62,7 @@ def run(
     # video_file = "video_samples/rec-piazza-fiera-1-20210930T0730-300-mjpeg.avi"
     video_file = input_filepath
     # cam_name = "piazza-fiera"
-    cam_name = input_name
+    # cam_name = input_name
 
     # ### Video capture
     # cap = cv2.VideoCapture(video_file)
@@ -98,13 +97,31 @@ def run(
     dataset = LoadImages(video_file)
 
     # Run inference
-    for path, im, im0s, vid_cap, s in dataset:
+    for path, im0s, vid_cap, s in dataset:
         # Inference
-        results = object_detector.predict(im, im0s.shape)
+        results = object_detector.process_frame(im0s)
         img = object_detector.plot_boxes(results, im0s)
-        cv2.imshow("image", img)
+        anomaly_detector.process_frame(im0s)
+        cv2.imshow("frame", img)
         if cv2.waitKey(1) & 0xFF == ord("q"):
             cv2.destroyAllWindows()
+            break
+
+    anomaly_scores = anomaly_detector.measure_anomaly_scores()
+
+    dataset = LoadImages(video_file)
+    for i, (path, im0s, vid_cap, s) in enumerate(dataset):
+        if i - (anomaly_detector.t_length - 1) >= 0:
+            anomaly_score = anomaly_scores[i - (anomaly_detector.t_length - 1)]
+        else:
+            anomaly_score = -1
+        img = anomaly_detector.plot_anomaly(im0s, anomaly_score)
+        cv2.namedWindow('frame', cv2.WINDOW_NORMAL)
+        cv2.setWindowProperty('frame', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+        cv2.imshow('frame', img)
+        if cv2.waitKey(1) & 0xFF == ord("q"):
+            cv2.destroyAllWindows()
+            vid_cap.release()
             break
 
 

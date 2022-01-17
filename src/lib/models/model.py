@@ -6,8 +6,9 @@ import torchvision.models as models
 import torch
 
 from .yolo import get_yolo
+from .mpn import get_mpn
 
-_model_factory = {"yolo": get_yolo}
+_model_factory = {"yolo": get_yolo, "mpn": get_mpn}
 
 
 def create_model(arch):
@@ -22,7 +23,9 @@ def load_model(
     start_epoch = 0
     checkpoint = torch.load(model_path, map_location=lambda storage, loc: storage)
     print("loaded {}, epoch {}".format(model_path, checkpoint["epoch"]))
-    state_dict_ = checkpoint.get("state_dict", checkpoint.get("model").float().state_dict())
+    state_dict_ = checkpoint.get("state_dict")
+    if state_dict_ is None:
+        state_dict_ = checkpoint.get("model").float().state_dict()
     state_dict = {}
 
     # convert data_parallel to model

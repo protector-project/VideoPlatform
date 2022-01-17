@@ -1,20 +1,33 @@
 import torch
 import cv2
+import numpy as np
+
 from models.model import create_model, load_model
+from lib.utils.datasets.dataset import letterbox
 from utils.general import non_max_suppression, scale_coords, xywh2xyxy, xyxy2xywh
 
 
 class ObjectDetector(object):
-    def __init__(self, model_path, device):
+    def __init__(self, model_path, device, img_size=1280, stride=32, auto=True):
         print("Creating model...")
         self.model_path = model_path
         self.device = device
+        self.img_size = img_size
+        self.stride = stride
+        self.auto = auto
         self.model = create_model("yolo")
         self.model = load_model(self.model, model_path)
         self.model = self.model.to(device)
         self.model.eval()
 
-    def pre_process(self, im):
+    def pre_process(self, im0):
+        # Padded resize
+        im = letterbox(im0, self.img_size, stride=self.stride, auto=self.auto)[0]
+
+        # Convert
+        im = im.transpose((2, 0, 1))[::-1]  # HWC to CHW, BGR to RGB
+        im = np.ascontiguousarray(im)
+
         im = torch.from_numpy(im).to(self.device)
         im = im.float()  # uint8 to fp32
         im /= 255  # 0 - 255 to 0.0 - 1.0
@@ -27,13 +40,13 @@ class ObjectDetector(object):
         pred = non_max_suppression(pred)
         return pred
 
-    def predict(self, im, im0_shape):
+    def process_frame(self, im0):
         """
         Takes a single frame as input, and scores the frame using yolo5 model.
         :param frame: input frame in numpy/list/tuple format.
         :return: Labels and Coordinates of objects detected by model in the frame.
         """
-        im = self.pre_process(im)
+        im = self.pre_process(im0)
 
         # Inference
         pred = self.model(im)[0]
@@ -46,7 +59,7 @@ class ObjectDetector(object):
             # gn = torch.tensor(im0_shape)[[1, 0, 1, 0]]  # normalization gain whwh
             if len(det):
                 # Rescale boxes from img_size to im0 size
-                det[:, :4] = scale_coords(im.shape[2:], det[:, :4], im0_shape).round()
+                det[:, :4] = scale_coords(im.shape[2:], det[:, :4], im0.shape).round()
 
                 for *xyxy, conf, cls in reversed(det):
                     # xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
