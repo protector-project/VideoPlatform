@@ -3,26 +3,26 @@ import cv2
 import numpy as np
 
 from models.model import create_model, load_model
-from lib.utils.datasets.dataset import letterbox
+from datasets.dataset import letterbox
 from utils.general import non_max_suppression, scale_coords, xywh2xyxy, xyxy2xywh
 
 
 class ObjectDetector(object):
-    def __init__(self, model_path, device, img_size=1280, stride=32, auto=True):
+    def __init__(self, opt, device):
         print("Creating model...")
-        self.model_path = model_path
+        self.opt = opt
         self.device = device
-        self.img_size = img_size
-        self.stride = stride
-        self.auto = auto
         self.model = create_model("yolo")
-        self.model = load_model(self.model, model_path)
+        self.model = load_model(self.model, opt.detection_model)
         self.model = self.model.to(device)
         self.model.eval()
 
+        self.imgsz = self.opt.detection_imgsz
+        self.stride = int(self.model.stride.max())
+
     def pre_process(self, im0):
         # Padded resize
-        im = letterbox(im0, self.img_size, stride=self.stride, auto=self.auto)[0]
+        im = letterbox(im0, self.imgsz, stride=self.stride)[0]
 
         # Convert
         im = im.transpose((2, 0, 1))[::-1]  # HWC to CHW, BGR to RGB
@@ -46,7 +46,7 @@ class ObjectDetector(object):
         :param frame: input frame in numpy/list/tuple format.
         :return: Labels and Coordinates of objects detected by model in the frame.
         """
-        im = self.pre_process(im0)
+        im = self.pre_process(im0.copy())
 
         # Inference
         pred = self.model(im)[0]
@@ -80,38 +80,3 @@ class ObjectDetector(object):
     def count_label(self, results, label):
         n = len([cls == label for cls, xywh, conf in results])
         return n
-
-    def plot_boxes(
-        self, results, im0, color=(128, 128, 128), txt_color=(255, 255, 255), lw=3
-    ):
-        """
-        Takes a frame and its results as input, and plots the bounding boxes and label on to the frame.
-        :param results: contains labels and coordinates predicted by model on the given frame.
-        :param frame: Frame which has been scored.
-        :return: Frame with bounding boxes and labels ploted on it.
-        """
-        h, w = im0.shape[:2]
-        for label, *xyxy, conf in results:
-            # xyxy = xywh2xyxy(torch.tensor(xywh).view(1, 4))
-            p1, p2 = (int(xyxy[0]), int(xyxy[1])), (int(xyxy[2]), int(xyxy[3]))
-            cv2.rectangle(im0, p1, p2, color=color, thickness=lw, lineType=cv2.LINE_AA)
-            tf = max(lw - 1, 1)  # font thickness
-            # label = self.cls2label(cls)
-            w, h = cv2.getTextSize(label, 0, fontScale=lw / 3, thickness=tf)[
-                0
-            ]  # text width, height
-            outside = p1[1] - h - 3 >= 0  # label fits outside box
-            p2 = p1[0] + w, p1[1] - h - 3 if outside else p1[1] + h + 3
-            cv2.rectangle(im0, p1, p2, color, -1, cv2.LINE_AA)  # filled
-            cv2.putText(
-                im0,
-                label,
-                (p1[0], p1[1] - 2 if outside else p1[1] + h + 2),
-                0,
-                lw / 3,
-                txt_color,
-                thickness=tf,
-                lineType=cv2.LINE_AA,
-            )
-
-        return im0

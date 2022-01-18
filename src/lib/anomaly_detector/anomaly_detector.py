@@ -12,21 +12,21 @@ from models.model import create_model, load_model
 
 
 class AnomalyDetector:
-    def __init__(self, model_path, device, img_size=(256, 256)):
+    def __init__(self, opt, device, img_size=(256, 256)):
         print("Creating model...")
-        self.model_path = model_path
+        self.opt = opt
         self.device = device
         self.img_size = img_size
-        self.model = create_model("mpn")
-        self.model = load_model(self.model, model_path)
+        self.model = create_model(opt.anomaly_arch)
+        self.model = load_model(self.model, opt.anomaly_model)
         self.model = self.model.to(device)
         self.model.eval()
 
         # Parameters
-        self.t_length = 5
-        self.h = img_size[0]
-        self.w = img_size[1]
-        self.alpha = 0.5
+        self.t_length = opt.t_length
+        self.h = opt.anomaly_h
+        self.w = opt.anomaly_w
+        self.alpha = opt.alpha
 
         self.psnr_list = []
         self.feature_distance_list = []
@@ -48,11 +48,14 @@ class AnomalyDetector:
         # set "channels first" ordering, and add a batch dimension
         img = np.transpose(img, (2, 0, 1))
         img = np.expand_dims(img, 0)
+        # convert the preprocessed images to a torch tensor and flash them to
+        # the GPU
+        img = torch.from_numpy(img).to(self.device)
         # return the preprocessed image
         return img
 
     def process_frame(self, im0):
-        img = self.pre_process(im0)
+        img = self.pre_process(im0.copy())
 
         self.buffer.append(img)
 
@@ -60,11 +63,7 @@ class AnomalyDetector:
         if len(self.buffer) == self.t_length:
             imgs = list(itertools.islice(self.buffer, 0, self.t_length))
             # concat images along the channel axis
-            imgs = np.concatenate(imgs, axis=1)
-            # convert the preprocessed images to a torch tensor and flash them to
-            # the GPU
-            imgs = torch.from_numpy(imgs)
-            imgs = imgs.cuda()
+            imgs = torch.cat(imgs, dim=1)
 
             outputs, fea_loss = self.model.forward(
                 imgs[:, : 3 * 4], weights=None, train=False
@@ -95,52 +94,6 @@ class AnomalyDetector:
         anomaly_score_total_list = self.score_sum(aa, bb, self.alpha)
         anomaly_score_total = np.asarray(anomaly_score_total_list)
         return anomaly_score_total
-
-    def plot_anomaly(
-        self,
-        im0,
-        anomaly_score,
-        anomaly_thres=0.5,
-        font=cv2.FONT_HERSHEY_SIMPLEX,
-        font_scale=1,
-        thickness=1,
-        line_type=2
-    ):  
-        if anomaly_score >= 0:
-            margin = 10
-            img_h = im0.shape[0]
-            bottom_left_corner_of_text = (margin, img_h - margin)
-            text_description = "Anomaly" if anomaly_score < anomaly_thres else "Normal"
-            color = (0, 0, 255) if text_description == "Anomaly" else (0, 255, 0)
-            
-            im0 = cv2.putText(
-                im0,
-                f"{anomaly_score:.2f}",
-                bottom_left_corner_of_text,
-                font,
-                font_scale,
-                color,
-                thickness,
-                line_type
-            )
-
-            text_w, text_h = cv2.getTextSize(
-                "{:.2f}".format(anomaly_score), font, font_scale, line_type
-            )[0] # text width, height
-            bottom_left_corner_of_text = (text_w + margin * 2, img_h - margin)
-
-            im0 = cv2.putText(
-                im0,
-                text_description,
-                bottom_left_corner_of_text,
-                font,
-                font_scale,
-                color,
-                thickness,
-                line_type
-            )
-
-        return im0
 
     def filter(self, data, template, radius=5):
         arr = np.array(data)
