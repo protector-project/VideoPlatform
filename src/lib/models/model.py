@@ -5,10 +5,12 @@ from __future__ import print_function
 import torchvision.models as models
 import torch
 
+from lib.models.networks.pose_dla_dcn import get_fairmot
+
 from .yolo import get_yolo
 from .mpn import get_mpn
 
-_model_factory = {"yolo": get_yolo, "mpn": get_mpn}
+_model_factory = {"yolo": get_yolo, "mpn": get_mpn, "fairmot": get_fairmot}
 
 
 def create_model(arch):

@@ -6,7 +6,6 @@ import _init_paths
 
 import os.path
 import cv2
-import argparse
 import torch
 
 from tqdm import tqdm
@@ -14,45 +13,30 @@ from tqdm import tqdm
 from lib.object_detector.object_detector import ObjectDetector
 from lib.anomaly_detector.anomaly_detector import AnomalyDetector
 from lib.influx.influx_client import InfluxClient
-from lib.utils.datasets.dataset import LoadImages
+from lib.datasets.dataset import LoadImages
+from lib.opts import opts
+from lib.tracker.tracker import Tracker
+
 from lib.utils.torch_utils import select_device
+from lib.utils.visualization import plot_anomaly, plot_boxes, plot_tracking
+
+
+USE_DATABASE = False
 
 
 @torch.no_grad()
-def run(
-    input_filepath,
-    input_name,
-    anomaly_model,
-    detection_model,
-    device,
-    database_host,
-    database_port,
-    database_name,
-):
-    if not os.path.isfile(input_filepath):
-        print("Video File Not Found")
-        exit()
-
-    if not os.path.isfile(anomaly_model):
-        print("Anomaly Model File Not Found")
-        exit()
-
-    if not os.path.isfile(detection_model):
-        print("Object Detection Model File Not Found")
-        exit()
-
-    USE_DATABASE = False
-
-    # Load model
-    device = select_device(device)
-    anomaly_detector = AnomalyDetector(anomaly_model, device)
-    object_detector = ObjectDetector(detection_model, device)
+def main(opt):
+    # Load models
+    device = select_device(opt.device)
+    anomaly_detector = AnomalyDetector(opt, device)
+    object_detector = ObjectDetector(opt, device)
+    tracker = Tracker(opt, device)
 
     if USE_DATABASE:
         i = InfluxClient(
-            host=database_host,
-            port=int(database_port),
-            database=database_name,
+            host=opt.database_host,
+            port=int(opt.database_port),
+            database=opt.database_name,
         )
         i.createConnection()
 
@@ -60,7 +44,7 @@ def run(
 
     ### Video Info
     # video_file = "video_samples/rec-piazza-fiera-1-20210930T0730-300-mjpeg.avi"
-    video_file = input_filepath
+    # video_file = opt.input_video
     # cam_name = "piazza-fiera"
     # cam_name = input_name
 
@@ -94,28 +78,24 @@ def run(
     # cv2.destroyAllWindows()
     # cap.release()
 
-    dataset = LoadImages(video_file)
+    dataset = LoadImages(opt.input_video)
 
+    frame_id = 0
     # Run inference
     for path, im0s, vid_cap, s in dataset:
         # Inference
+
+        # Video object detection
         results = object_detector.process_frame(im0s)
-        img = object_detector.plot_boxes(results, im0s)
+        img = plot_boxes(results, im0s)
+
+        # Video anomaly detection
         anomaly_detector.process_frame(im0s)
-        cv2.imshow("frame", img)
-        if cv2.waitKey(1) & 0xFF == ord("q"):
-            cv2.destroyAllWindows()
-            break
 
-    anomaly_scores = anomaly_detector.measure_anomaly_scores()
+        # Video object tracking
+        # online_tlwhs, online_ids = tracker.process_frame(im0s)
+        # img = plot_tracking(im0s, online_tlwhs, online_ids, frame_id=frame_id)
 
-    dataset = LoadImages(video_file)
-    for i, (path, im0s, vid_cap, s) in enumerate(dataset):
-        if i - (anomaly_detector.t_length - 1) >= 0:
-            anomaly_score = anomaly_scores[i - (anomaly_detector.t_length - 1)]
-        else:
-            anomaly_score = -1
-        img = anomaly_detector.plot_anomaly(im0s, anomaly_score)
         cv2.namedWindow('frame', cv2.WINDOW_NORMAL)
         cv2.setWindowProperty('frame', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
         cv2.imshow('frame', img)
@@ -124,69 +104,29 @@ def run(
             vid_cap.release()
             break
 
+        frame_id += 1
 
-def parse_opt():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "-I",
-        "--input_filepath",
-        type=str,
-        required=True,
-        help="The path to the video file to process",
-    )
-    parser.add_argument(
-        "-N",
-        "--input_name",
-        type=str,
-        required=True,
-        help="The name of the place of the video",
-    )
-    parser.add_argument(
-        "-AM",
-        "--anomaly_model",
-        type=str,
-        required=True,
-        help="The path to the anomaly model",
-    )
-    parser.add_argument(
-        "-OM",
-        "--detection_model",
-        type=str,
-        required=True,
-        help="The path to the object detection model",
-    )
-    parser.add_argument(
-        "--device", default="", help="cuda device, i.e. 0 or 0,1,2,3 or cpu"
-    )
-    parser.add_argument(
-        "-DH",
-        "--database_host",
-        type=str,
-        required=False,
-        help="IP address of the database",
-    )
-    parser.add_argument(
-        "-DP",
-        "--database_port",
-        type=str,
-        required=False,
-        help="Port number of the database",
-    )
-    parser.add_argument(
-        "-DN",
-        "--database_name",
-        type=str,
-        required=False,
-        help="Name of the Database",
-    )
-    opt = parser.parse_args()
-    return opt
+    anomaly_scores = anomaly_detector.measure_anomaly_scores()
+    
+    dataset = LoadImages(opt.input_video)
 
+    frame_id = 0
+    for i, (path, im0s, vid_cap, s) in enumerate(dataset):
+        score_idx = i - (anomaly_detector.t_length - 1)
+        anomaly_score = anomaly_scores[score_idx] if score_idx >= 0 else -1
+        img = plot_anomaly(im0s, anomaly_score, frame_id=frame_id)
 
-def main(opt):
-    run(**vars(opt))
+        cv2.namedWindow('frame', cv2.WINDOW_NORMAL)
+        cv2.setWindowProperty('frame', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+        cv2.imshow('frame', img)
+        if cv2.waitKey(1) & 0xFF == ord("q"):
+            cv2.destroyAllWindows()
+            vid_cap.release()
+            break
+
+        frame_id += 1
 
 
 if __name__ == "__main__":
-    opt = parse_opt()
+    opt = opts().init()
     main(opt)
