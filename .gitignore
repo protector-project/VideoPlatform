@@ -160,6 +160,7 @@ cython_debug/
 
 ### Models ###
 *.pt
+*.pth
 
 ### VisualStudioCode ###
 .vscode/*
@@ -183,3 +184,5 @@ video_samples/
 utils/
 playground/
 
+DCNv2/
+.vscode/launch.json
