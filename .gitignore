@@ -181,7 +181,6 @@ cython_debug/
 # End of https://www.toptal.com/developers/gitignore/api/python,visualstudiocode,video
 ### folders ###
 video_samples/
-utils/
 playground/
 
 DCNv2/
