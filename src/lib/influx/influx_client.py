@@ -41,7 +41,6 @@ class InfluxClient:
     def insertObjects(self, camera_name, clip_name, results, timestamp):
         json_body = []
         label = [x[0] for x in results]
-        #label, *xyxy, conf = results
         count_labels = {i: label.count(i) for i in label}
         for k, v in count_labels.items():
             json_body.append(
@@ -52,10 +51,7 @@ class InfluxClient:
                         "file_name": clip_name,
                         "label": k,
                     },
-                    "fields": {
-                        "value": v,
-                        "video_timestamp": timestamp
-                    },
+                    "fields": {"value": v, "video_timestamp": timestamp},
                 }
             )
         self.client.write_points(json_body)
