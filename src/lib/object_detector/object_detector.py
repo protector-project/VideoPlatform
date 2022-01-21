@@ -78,5 +78,5 @@ class ObjectDetector(object):
         return label
 
     def count_label(self, results, label):
-        n = len([cls == label for cls, xywh, conf in results])
+        n = len([cls == label for cls, *xywh, conf in results])
         return n

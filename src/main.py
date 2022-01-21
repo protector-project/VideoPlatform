@@ -21,7 +21,7 @@ from lib.utils.torch_utils import select_device
 from lib.utils.visualization import plot_anomaly, plot_boxes, plot_tracking
 
 
-USE_DATABASE = False
+USE_DATABASE = True
 
 
 @torch.no_grad()
@@ -93,16 +93,25 @@ def main(opt):
         anomaly_detector.process_frame(im0s)
 
         # Video object tracking
-        # online_tlwhs, online_ids = tracker.process_frame(im0s)
-        # img = plot_tracking(im0s, online_tlwhs, online_ids, frame_id=frame_id)
+        online_tlwhs, online_ids = tracker.process_frame(im0s)
+        img = plot_tracking(im0s, online_tlwhs, online_ids, frame_id=frame_id)
 
-        cv2.namedWindow('frame', cv2.WINDOW_NORMAL)
-        cv2.setWindowProperty('frame', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-        cv2.imshow('frame', img)
-        if cv2.waitKey(1) & 0xFF == ord("q"):
-            cv2.destroyAllWindows()
-            vid_cap.release()
-            break
+        # cv2.namedWindow('frame', cv2.WINDOW_NORMAL)
+        # cv2.setWindowProperty('frame', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+        if USE_DATABASE:
+            frame_time = vid_cap.get(cv2.CAP_PROP_POS_MSEC) / 1000
+            if USE_DATABASE:
+                print(results)
+                if results != []:
+                    count_label = object_detector.count_label(results, "0")
+                    i.insertHumans(opt.input_name, count_label, frame_time)
+                    i.insertObjects(opt.input_name, opt.input_video, results, frame_time)
+        print(frame_time)
+        # cv2.imshow('frame', img)
+        # if cv2.waitKey(1) & 0xFF == ord("q"):
+        #     cv2.destroyAllWindows()
+        #     vid_cap.release()
+        #     break
 
         frame_id += 1
 
@@ -115,9 +124,13 @@ def main(opt):
         score_idx = i - (anomaly_detector.t_length - 1)
         anomaly_score = anomaly_scores[score_idx] if score_idx >= 0 else -1
         img = plot_anomaly(im0s, anomaly_score, frame_id=frame_id)
+        
+        if USE_DATABASE:
+            frame_time = vid_cap.get(cv2.CAP_PROP_POS_MSEC) / 1000
+            i.insertAnomaly(opt.input_name, anomaly_score, opt.input_video, frame_time)
 
         cv2.namedWindow('frame', cv2.WINDOW_NORMAL)
-        cv2.setWindowProperty('frame', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+        #cv2.setWindowProperty('frame', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
         cv2.imshow('frame', img)
         if cv2.waitKey(1) & 0xFF == ord("q"):
             cv2.destroyAllWindows()
