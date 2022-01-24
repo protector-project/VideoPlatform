@@ -195,7 +195,7 @@ class Tracker(object):
         :param resize_width: resized width
         :return: numpy.ndarray
         """
-        w, h = 1920, 1080
+        w, h = (1088, 608)
         im = cv2.resize(im0, (w, h))
 
         # Padded resize
