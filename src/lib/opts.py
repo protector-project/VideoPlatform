@@ -21,10 +21,10 @@ class opts(object):
 
         # object detection
         self.parser.add_argument(
-            "--detection_model",
-            type=extant_file,
-            required=True,
-            help="path to object detection pretrained model",
+            "--detection_weights",
+            nargs="+",
+            type=str,
+            help="path(s) to object detection pretrained model",
         )
         self.parser.add_argument(
             "--detection_arch",

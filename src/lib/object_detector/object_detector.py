@@ -8,12 +8,12 @@ from utils.general import non_max_suppression, scale_coords, xywh2xyxy, xyxy2xyw
 
 
 class ObjectDetector(object):
-    def __init__(self, opt, device):
+    def __init__(self, opt, device, model_path):
         print("Creating model...")
         self.opt = opt
         self.device = device
         self.model = create_model("yolo")
-        self.model = load_model(self.model, opt.detection_model)
+        self.model = load_model(self.model, model_path)
         self.model = self.model.to(device)
         self.model.eval()
 

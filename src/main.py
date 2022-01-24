@@ -22,17 +22,17 @@ from lib.utils.torch_utils import select_device
 from lib.utils.visualization import plot_anomaly, plot_boxes, plot_tracking
 
 
-USE_DATABASE = True
+USE_DATABASE = False
 
 
 @torch.no_grad()
 def main(opt):
     # Load models
     device = select_device(opt.device)
-    anomaly_detector = AnomalyDetector(opt, device)
-    object_detector = ObjectDetector(opt, device)
+    anomaly_detector = AnomalyDetector(opt, device)    
+    object_detector = ObjectDetector(opt, device, opt.detection_weights[0])
+    vehicle_detector = ObjectDetector(opt, device, opt.detection_weights[1])
     tracker = Tracker(opt, device)
-    vehicle_detector = torch.hub.load('ultralytics/yolov5', 'yolov5s')
 
     if USE_DATABASE:
         i = InfluxClient(
@@ -52,11 +52,12 @@ def main(opt):
         # Inference
 
         # Video object detection
-        results = object_detector.process_frame(im0s)
-        img = plot_boxes(results, im0s)
+        #results = object_detector.process_frame(im0s)
+        #img = plot_boxes(results, im0s)
 
         # Vehicle detection
         vehicles = vehicle_detector.process_frame(im0s)
+        img = plot_boxes(vehicles, im0s)
 
         # Video anomaly detection
         anomaly_detector.process_frame(im0s)
@@ -68,11 +69,11 @@ def main(opt):
         # objects visualization
         # cv2.namedWindow('frame', cv2.WINDOW_NORMAL)
         # cv2.setWindowProperty('frame', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-        # cv2.imshow('frame', img)
-        # if cv2.waitKey(1) & 0xFF == ord("q"):
-        #     cv2.destroyAllWindows()
-        #     vid_cap.release()
-        #     break
+        cv2.imshow('frame', img)
+        if cv2.waitKey(1) & 0xFF == ord("q"):
+            cv2.destroyAllWindows()
+            vid_cap.release()
+            break
 
         if USE_DATABASE:
             frame_time = vid_cap.get(cv2.CAP_PROP_POS_MSEC) / 1000
@@ -81,11 +82,11 @@ def main(opt):
                 if results != []:
                     count_label = object_detector.count_label(results, "0")
                     i.insertHumans(opt.input_name, count_label, frame_time)
-                if vehicles != []:
-                    i.insertObjects(
-                        opt.input_name, opt.input_video, vehicles, frame_time
-                    )
-        print(frame_time)
+                # if vehicles != []:
+                #     i.insertObjects(
+                #         opt.input_name, opt.input_video, vehicles, frame_time
+                #     )
+            print(frame_time)
 
         frame_id += 1
 
