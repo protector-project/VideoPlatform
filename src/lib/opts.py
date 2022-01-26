@@ -4,6 +4,12 @@ from __future__ import print_function
 
 import argparse
 import os
+from pathlib import Path
+
+
+def get_project_root() -> Path:
+    return Path(__file__).parent.parent.parent
+
 
 
 def extant_file(fname):
@@ -21,20 +27,39 @@ class opts(object):
 
         # object detection
         self.parser.add_argument(
-            "--detection_model",
-            type=extant_file,
-            required=True,
-            help="path to object detection pretrained model",
-        )
-        self.parser.add_argument(
             "--detection_arch",
             default="yolo",
             help="model architecture. Currently only supports yolo",
         )
+
+        # person detection
         self.parser.add_argument(
-            "--detection_imgsz",
-            "--detection_img",
-            "--detection_img_size",
+            "--person_detection_model",
+            type=extant_file,
+            default=get_project_root() / 'models/yolov5x6_mt_ft_ch.pt',
+            help="path to person detection pretrained model",
+        )
+        self.parser.add_argument(
+            "--person_detection_imgsz",
+            "--person_detection_img",
+            "--person_detection_img_size",
+            nargs="+",
+            type=int,
+            default=[1280],
+            help="inference size h,w",
+        )
+
+        # vehicle detection
+        self.parser.add_argument(
+            "--veh_detection_model",
+            type=extant_file,
+            default=get_project_root() / 'models/yolov5n6.pt',
+            help="path to vehicle detection pretrained model",
+        )
+        self.parser.add_argument(
+            "--veh_detection_imgsz",
+            "--veh_detection_img",
+            "--veh_detection_img_size",
             nargs="+",
             type=int,
             default=[1280],
@@ -45,7 +70,7 @@ class opts(object):
         self.parser.add_argument(
             "--anomaly_model",
             type=extant_file,
-            required=True,
+            default=get_project_root() / 'models/mpn_piazza_2_sett_3.pt',
             help="path to anomaly detection pretrained model",
         )
         self.parser.add_argument(
@@ -70,7 +95,7 @@ class opts(object):
         self.parser.add_argument(
             "--tracking_model",
             type=extant_file,
-            required=True,
+            default=get_project_root() / 'models/crowdhuman_dla34.pth',
             help="path to tracking pretrained model",
         )
         self.parser.add_argument(
@@ -197,7 +222,8 @@ class opts(object):
         else:
             opt = self.parser.parse_args(args)
 
-        opt.detection_imgsz *= 2 if len(opt.detection_imgsz) == 1 else 1  # expand
+        opt.person_detection_imgsz *= 2 if len(opt.person_detection_imgsz) == 1 else 1  # expand
+        opt.veh_detection_imgsz *= 2 if len(opt.veh_detection_imgsz) == 1 else 1  # expand
 
         opt.reg_offset = True
 

@@ -1,9 +1,7 @@
-import argparse
-import logging
-import sys
-import os
 from copy import deepcopy
 from pathlib import Path
+
+from lib.utils.general import check_version
 
 from .common import *
 
@@ -63,6 +61,10 @@ class Detect(nn.Module):
         yv, xv = torch.meshgrid(
             [torch.arange(ny, device=d), torch.arange(nx, device=d)]
         )
+        if check_version(torch.__version__, '1.10.0'):  # torch>=1.10.0 meshgrid workaround for torch>=0.7 compatibility
+            yv, xv = torch.meshgrid([torch.arange(ny, device=d), torch.arange(nx, device=d)], indexing='ij')
+        else:
+            yv, xv = torch.meshgrid([torch.arange(ny, device=d), torch.arange(nx, device=d)])   
         grid = torch.stack((xv, yv), 2).expand((1, self.na, ny, nx, 2)).float()
         anchor_grid = (
             (self.anchors[i].clone() * self.stride[i])
@@ -220,21 +222,35 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
     return nn.Sequential(*layers), sorted(save)
 
 
-def get_yolo():
+def get_yolo(weights, inplace=True):
     # Create model
-    weights = os.path.join(os.path.dirname(__file__), "../../../models/yolov5x6_mt_ft_ch.pt")
     ckpt = torch.load(weights)  # load checkpoint
-    model = Model(ckpt["model"].yaml)  # create
-    exclude = []  # exclude keys
-    state_dict = ckpt["model"].float().state_dict()  # checkpoint state_dict as FP32
-    state_dict = intersect_dicts(
-        state_dict, model.state_dict(), exclude=exclude
-    )  # intersect
-    model.load_state_dict(state_dict, strict=False)  # load
-    print(
-        "Transferred %g/%g items from %s"
-        % (len(state_dict), len(model.state_dict()), weights)
-    )  # report
+    model = Model(ckpt['model'].yaml)  # create
+
+    # Compatibility updates
+    for m in model.modules():
+        if type(m) in [nn.Hardswish, nn.LeakyReLU, nn.ReLU, nn.ReLU6, nn.SiLU, Detect, Model]:
+            m.inplace = inplace  # pytorch 1.7.0 compatibility
+            if type(m) is Detect:
+                if not isinstance(m.anchor_grid, list):  # new Detect Layer compatibility
+                    delattr(m, 'anchor_grid')
+                    setattr(m, 'anchor_grid', [torch.zeros(1)] * m.nl)
+        elif type(m) is Conv:
+            m._non_persistent_buffers_set = set()  # pytorch 1.6.0 compatibility
+
+    # exclude = []  # exclude keys
+    # state_dict = ckpt["model"].float().state_dict()  # checkpoint state_dict as FP32
+    # state_dict = intersect_dicts(
+    #     state_dict, model.state_dict(), exclude=exclude
+    # )  # intersect
+    # model.load_state_dict(state_dict, strict=False)  # load
+    # print(
+    #     "Transferred %g/%g items from %s"
+    #     % (len(state_dict), len(model.state_dict()), weights)
+    # )  # report
+
+    # Model attributes
+    model.names = ckpt['model'].names
     return model
 
 

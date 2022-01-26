@@ -2,7 +2,9 @@
 General utils
 """
 
+import math
 import time
+import pkg_resources as pkg
 import torch
 import torchvision
 
@@ -43,6 +45,34 @@ def box_iou(box1, box2):
         area1[:, None] + area2 - inter
     )  # iou = inter / (area1 + area2 - inter)
 
+
+def check_version(current='0.0.0', minimum='0.0.0', name='version ', pinned=False, hard=False):
+    # Check version vs. required version
+    current, minimum = (pkg.parse_version(x) for x in (current, minimum))
+    result = (current == minimum) if pinned else (current >= minimum)  # bool
+    if hard:  # assert min requirements met
+        assert result, f'{name}{minimum} required by YOLOv5, but {name}{current} is currently installed'
+    else:
+        return result
+
+
+def check_img_size(imgsz, s=32, floor=0):
+    # Verify image size is a multiple of stride s in each dimension
+    if isinstance(imgsz, int):  # integer i.e. img_size=640
+        new_size = max(make_divisible(imgsz, int(s)), floor)
+    else:  # list i.e. img_size=[640, 480]
+        new_size = [max(make_divisible(x, int(s)), floor) for x in imgsz]
+    if new_size != imgsz:
+        print(f'WARNING: --img-size {imgsz} must be multiple of max stride {s}, updating to {new_size}')
+    return new_size
+
+
+def make_divisible(x, divisor):
+    # Returns nearest x divisible by divisor
+    if isinstance(divisor, torch.Tensor):
+        divisor = int(divisor.max())  # to int
+    return math.ceil(x / divisor) * divisor
+    
 
 def xyxy2xywh(x):
     # Convert nx4 boxes from [x1, y1, x2, y2] to [x, y, w, h] where xy1=top-left, xy2=bottom-right
