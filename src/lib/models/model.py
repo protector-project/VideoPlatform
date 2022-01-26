@@ -13,9 +13,9 @@ from .mpn import get_mpn
 _model_factory = {"yolo": get_yolo, "mpn": get_mpn, "fairmot": get_fairmot}
 
 
-def create_model(arch):
+def create_model(arch, model_path=None):
     get_model = _model_factory[arch]
-    model = get_model()
+    model = get_model(model_path)
     return model
 
 

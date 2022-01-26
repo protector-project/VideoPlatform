@@ -459,7 +459,7 @@ def dismap(x, name="pred"):
     return True
 
 
-def get_mpn(c=3, t_length=5, psize=10, fdim=[128], pdim=[128]):
+def get_mpn(model_path=None, c=3, t_length=5, psize=10, fdim=[128], pdim=[128]):
     # Create model
     model = convAE(c, t_length, psize, fdim[0], pdim[0])
     return model

@@ -482,7 +482,7 @@ class DLASeg(nn.Module):
         return [z]
     
 
-def get_fairmot(num_layers=34, head_conv=256, down_ratio=4):
+def get_fairmot(model_path=None, num_layers=34, head_conv=256, down_ratio=4):
     heads = {
         'hm': 1,
         'wh': 4,

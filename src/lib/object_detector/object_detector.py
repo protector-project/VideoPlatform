@@ -4,21 +4,22 @@ import numpy as np
 
 from models.model import create_model, load_model
 from datasets.dataset import letterbox
-from utils.general import non_max_suppression, scale_coords, xywh2xyxy, xyxy2xywh
+from utils.general import check_img_size, non_max_suppression, scale_coords, xywh2xyxy, xyxy2xywh
 
 
 class ObjectDetector(object):
-    def __init__(self, opt, device, model_path):
+    def __init__(self, opt, model_path, imgsz, device):
         print("Creating model...")
         self.opt = opt
+        self.model_path = model_path
         self.device = device
-        self.model = create_model("yolo")
+        self.model = create_model(opt.detection_arch, model_path)
         self.model = load_model(self.model, model_path)
         self.model = self.model.to(device)
         self.model.eval()
 
-        self.imgsz = self.opt.detection_imgsz
         self.stride = int(self.model.stride.max())
+        self.imgsz = check_img_size(imgsz, s=self.stride)  # check image size
 
     def pre_process(self, im0):
         # Padded resize
@@ -35,12 +36,12 @@ class ObjectDetector(object):
             im = im[None]  # expand for batch dim
         return im
 
-    def post_process(self, pred):
+    def post_process(self, pred, classes=None):
         # NMS
-        pred = non_max_suppression(pred)
+        pred = non_max_suppression(pred, classes=classes)
         return pred
 
-    def process_frame(self, im0):
+    def process_frame(self, im0, classes=None):
         """
         Takes a single frame as input, and scores the frame using yolo5 model.
         :param frame: input frame in numpy/list/tuple format.
@@ -50,7 +51,7 @@ class ObjectDetector(object):
 
         # Inference
         pred = self.model(im)[0]
-        pred = self.post_process(pred)
+        pred = self.post_process(pred, classes)
 
         results = []
 
