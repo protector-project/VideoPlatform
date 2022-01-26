@@ -2,6 +2,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import influxdb
+
 import _init_paths
 
 import os.path
@@ -22,7 +24,7 @@ from lib.utils.torch_utils import select_device
 from lib.utils.visualization import plot_anomaly, plot_boxes, plot_tracking
 
 
-USE_DATABASE = False
+USE_DATABASE = True
 VEHICLES_LABELS = ["bicycle", "car", "motorcycle", "bus", "truck"]
 
 
@@ -42,12 +44,12 @@ def main(opt):
     veh_classes = [veh_detector.model.names.index(veh) for veh in VEHICLES_LABELS]
 
     if USE_DATABASE:
-        i = InfluxClient(
+        influx = InfluxClient(
             host=opt.database_host,
             port=int(opt.database_port),
             database=opt.database_name,
         )
-        i.createConnection()
+        influx.createConnection()
 
     count = -20
 
@@ -85,19 +87,16 @@ def main(opt):
                 cv2.destroyAllWindows()
                 vid_cap.release()
                 break
-
             if USE_DATABASE:
                 frame_time = vid_cap.get(cv2.CAP_PROP_POS_MSEC) / 1000
                 if USE_DATABASE:
-                    print(veh_results)
-                    if veh_results != []:
+                    if person_results != []:
                         count_label = person_detector.count_label(person_results, "0")
-                        i.insertHumans(opt.input_name, count_label, frame_time)
-                    # if vehicles != []:
-                    #     i.insertObjects(
-                    #         opt.input_name, opt.input_video, vehicles, frame_time
-                    #     )
-                print(frame_time)
+                        influx.insertHumans(opt.input_name, count_label, frame_time)
+                    if veh_results != []:
+                        influx.insertObjects(
+                            opt.input_name, opt.input_video, veh_results, frame_time
+                        )
 
             frame_id += 1
             pbar.update(1)
@@ -123,7 +122,7 @@ def main(opt):
 
         if USE_DATABASE:
             frame_time = vid_cap.get(cv2.CAP_PROP_POS_MSEC) / 1000
-            i.insertAnomaly(opt.input_name, anomaly_score, opt.input_video, frame_time)
+            influx.insertAnomaly(opt.input_name, float(anomaly_score), opt.input_video, frame_time)
 
         frame_id += 1
 
