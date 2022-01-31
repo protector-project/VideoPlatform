@@ -16,7 +16,6 @@ from lib.object_detector.object_detector import ObjectDetector
 from lib.anomaly_detector.anomaly_detector import AnomalyDetector
 from lib.influx.influx_client import InfluxClient
 from lib.datasets.dataset import LoadImages
-from lib.object_detector.vehicle_detector import VehicleDector
 from lib.opts import opts
 from lib.tracker.tracker import Tracker
 
