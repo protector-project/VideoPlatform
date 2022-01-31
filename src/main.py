@@ -2,6 +2,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import influxdb
+
 import _init_paths
 
 import os.path
@@ -21,13 +23,14 @@ from lib.utils.torch_utils import select_device
 from lib.utils.visualization import plot_anomaly, plot_boxes, plot_tracking
 
 
-USE_DATABASE = False
 VEHICLES_LABELS = ["bicycle", "car", "motorcycle", "bus", "truck"]
 
 
 @torch.no_grad()
 def main(opt):
     # Load models
+    print(opt.use_database)
+    exit()
     device = select_device(opt.device)
     anomaly_detector = AnomalyDetector(opt, device)
     person_detector = ObjectDetector(
@@ -40,51 +43,15 @@ def main(opt):
 
     veh_classes = [veh_detector.model.names.index(veh) for veh in VEHICLES_LABELS]
 
-    if USE_DATABASE:
-        i = InfluxClient(
+    if opt.use_database:
+        influx = InfluxClient(
             host=opt.database_host,
             port=int(opt.database_port),
             database=opt.database_name,
         )
-        i.createConnection()
+        influx.createConnection()
 
     count = -20
-
-    ### Video Info
-    # video_file = "video_samples/rec-piazza-fiera-1-20210930T0730-300-mjpeg.avi"
-    # video_file = opt.input_video
-    # cam_name = "piazza-fiera"
-    # cam_name = input_name
-
-    # ### Video capture
-    # cap = cv2.VideoCapture(video_file)
-    # frame_exists, img = cap.read()
-
-    # while frame_exists:
-    #     # a.processFrame(img)
-    #     # get the current time of the frame
-    #     frame_time = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000
-    #     # if count > 0:
-    #     #     r = a.lastResult()
-    #     #     # r = a.previewResults()
-    #     #     img = a.plotAnomaly(img, r[-1])
-    #     #     if USE_DATABASE:
-    #     #         i.insertAnomaly(cam_name, r[-1], video_file, frame_time)
-    #     # count += 1
-    #     results = o.score_frame(img)
-    #     if USE_DATABASE:
-    #         count_label = o.count_label(results, "person")
-    #         i.insertHumans(cam_name, count_label)
-    #         i.insertObjects(cam_name, video_file, results, o.class_to_label, frame_time)
-    #     frame = o.plot_boxes(results, img)
-    #     # cv2.imshow("image", img)
-    #     # key = cv2.waitKey(1) & 0xFF
-    #     # if key == ord("q"):
-    #     #     break
-    #     frame_exists, img = cap.read()
-
-    # cv2.destroyAllWindows()
-    # cap.release()
 
     dataset = LoadImages(opt.input_video)
 
@@ -120,6 +87,15 @@ def main(opt):
                 cv2.destroyAllWindows()
                 vid_cap.release()
                 break
+            if opt.use_database:
+                frame_time = vid_cap.get(cv2.CAP_PROP_POS_MSEC) / 1000
+                if person_results != []:
+                    count_label = person_detector.count_label(person_results, "0")
+                    influx.insertHumans(opt.input_name, count_label, frame_time)
+                if veh_results != []:
+                    influx.insertObjects(
+                        opt.input_name, opt.input_video, veh_results, frame_time
+                    )
 
             frame_id += 1
             pbar.update(1)
@@ -134,13 +110,18 @@ def main(opt):
         anomaly_score = anomaly_scores[score_idx] if score_idx >= 0 else -1
         img = plot_anomaly(im0s, anomaly_score, frame_id=frame_id)
 
-        cv2.namedWindow('frame', cv2.WINDOW_NORMAL)
-        cv2.setWindowProperty('frame', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-        cv2.imshow('frame', img)
-        if cv2.waitKey(1) & 0xFF == ord("q"):
-            cv2.destroyAllWindows()
-            vid_cap.release()
-            break
+        # anomaly visualization
+        # cv2.namedWindow('frame', cv2.WINDOW_NORMAL)
+        # cv2.setWindowProperty('frame', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+        # cv2.imshow('frame', img)
+        # if cv2.waitKey(1) & 0xFF == ord("q"):
+        #     cv2.destroyAllWindows()
+        #     vid_cap.release()
+        #     break
+
+        if opt.use_database:
+            frame_time = vid_cap.get(cv2.CAP_PROP_POS_MSEC) / 1000
+            influx.insertAnomaly(opt.input_name, float(anomaly_score), opt.input_video, frame_time)
 
         frame_id += 1
 

@@ -28,21 +28,20 @@ class InfluxClient:
         ]
         self.client.write_points(json_body)
 
-    def insertHumans(self, cameraName, value):
+    def insertHumans(self, cameraName, value, timestamp):
         json_body = [
             {
                 "measurement": "persons",
                 "tags": {"camera": cameraName},
-                "fields": {"score": value},
+                "fields": {"score": value, "video_timestamp": timestamp},
             }
         ]
         self.client.write_points(json_body)
 
-    def insertObjects(self, camera_name, clip_name, results, labelfunc, timestamp):
+    def insertObjects(self, camera_name, clip_name, results, timestamp):
         json_body = []
-        labels, cord = results
-        real_labels = [labelfunc(l) for l in labels]
-        count_labels = {i: real_labels.count(i) for i in real_labels}
+        label = [x[0] for x in results]
+        count_labels = {i: label.count(i) for i in label}
         for k, v in count_labels.items():
             json_body.append(
                 {
@@ -52,10 +51,7 @@ class InfluxClient:
                         "file_name": clip_name,
                         "label": k,
                     },
-                    "fields": {
-                        "value": v,
-                        "video_timestamp": timestamp
-                    },
+                    "fields": {"value": v, "video_timestamp": timestamp},
                 }
             )
         self.client.write_points(json_body)
