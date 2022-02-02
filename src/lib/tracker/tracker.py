@@ -4,12 +4,12 @@ import cv2
 import numpy as np
 import torch
 import torch.nn.functional as F
-from datasets.dataset import letterbox
+from lib.datasets.dataset import letterbox
 from models.model import create_model, load_model
 from models.decode import mot_decode
 from models.utils import _tranpose_and_gather_feat
 from tracking_utils.kalman_filter import KalmanFilter
-from utils.post_process import ctdet_post_process
+from lib.utils.postprocessing import ctdet_post_process
 
 from tracker import matching
 
@@ -168,7 +168,7 @@ class Tracker(object):
         self.device = device
         self.frame_rate = frame_rate
         self.model = create_model(opt.tracking_arch)
-        self.model = load_model(self.model, opt.tracking_model)
+        self.model = load_model(self.model, opt.tracking_model, opt.tracking_arch)
         self.model = self.model.to(device)
         self.model.eval()
 

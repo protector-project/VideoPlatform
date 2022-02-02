@@ -9,7 +9,7 @@ import random
 import pandas as pd
 import numpy as np
 import matplotlib
-matplotlib.use("Agg")
+matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import seaborn as sns
 from torch.nn import functional as F

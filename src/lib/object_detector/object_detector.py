@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 
 from models.model import create_model, load_model
-from datasets.dataset import letterbox
+from lib.datasets.dataset import letterbox
 from utils.general import check_img_size, non_max_suppression, scale_coords, xywh2xyxy, xyxy2xywh
 
 
@@ -14,7 +14,7 @@ class ObjectDetector(object):
         self.model_path = model_path
         self.device = device
         self.model = create_model(opt.detection_arch, model_path)
-        self.model = load_model(self.model, model_path)
+        self.model = load_model(self.model, model_path, opt.detection_arch)
         self.model = self.model.to(device)
         self.model.eval()
 

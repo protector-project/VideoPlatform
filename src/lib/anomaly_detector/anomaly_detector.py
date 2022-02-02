@@ -18,7 +18,7 @@ class AnomalyDetector:
         self.device = device
         self.img_size = img_size
         self.model = create_model(opt.anomaly_arch)
-        self.model = load_model(self.model, opt.anomaly_model)
+        self.model = load_model(self.model, opt.anomaly_model, opt.anomaly_arch)
         self.model = self.model.to(device)
         self.model.eval()
 

@@ -5,12 +5,17 @@ from __future__ import print_function
 import torchvision.models as models
 import torch
 
+from lib.models.yolo import get_yolo
+from lib.models.mpn import get_mpn
 from lib.models.networks.pose_dla_dcn import get_fairmot
+from lib.models.ynet import get_ynet
 
-from .yolo import get_yolo
-from .mpn import get_mpn
-
-_model_factory = {"yolo": get_yolo, "mpn": get_mpn, "fairmot": get_fairmot}
+_model_factory = {
+    "yolo": get_yolo,
+    "mpn": get_mpn,
+    "fairmot": get_fairmot,
+    "ynet": get_ynet,
+}
 
 
 def create_model(arch, model_path=None):
@@ -19,15 +24,18 @@ def create_model(arch, model_path=None):
     return model
 
 
-def load_model(
-    model, model_path, optimizer=None, resume=False, lr=None, lr_step=None
-):
+def load_model(model, model_path, arch, optimizer=None, resume=False, lr=None, lr_step=None):
     start_epoch = 0
     checkpoint = torch.load(model_path, map_location=lambda storage, loc: storage)
-    print("loaded {}, epoch {}".format(model_path, checkpoint["epoch"]))
-    state_dict_ = checkpoint.get("state_dict")
-    if state_dict_ is None:
+    print("loaded {}, epoch {}".format(model_path, checkpoint.get("epoch", -1)))
+    if arch == "yolo":
         state_dict_ = checkpoint.get("model").float().state_dict()
+    elif arch == "mpn" or arch == "fairmot":
+        state_dict_ = checkpoint.get("state_dict")
+    elif arch == "ynet":
+        state_dict_ = checkpoint
+    else:
+        raise ValueError("Invalid model architecture, expected one of {yolo, fairmot, mpn, ynet}")
     state_dict = {}
 
     # convert data_parallel to model
