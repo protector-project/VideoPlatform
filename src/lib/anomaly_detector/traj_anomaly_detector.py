@@ -352,11 +352,11 @@ class TrajAnomalyDetector:
             )
             gt_future = trajectories[i : i + 1, self.obs_len :].to(self.device)
             future_samples = future_samples_list[i]
-        plot_trajectories(
-            gt_future,
-            future_samples,
-            observed,
-            im0,
-            self.resize,
-            with_bg=True,
-        )
+            plot_trajectories(
+                gt_future,
+                future_samples,
+                observed,
+                im0,
+                self.resize,
+                with_bg=True,
+            )
