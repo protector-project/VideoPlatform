@@ -11,7 +11,6 @@ def get_project_root() -> Path:
     return Path(__file__).parent.parent.parent
 
 
-
 def extant_file(fname):
     """
     'Type' for argparse - checks that file exists but does not open.
@@ -36,7 +35,7 @@ class opts(object):
         self.parser.add_argument(
             "--person_detection_model",
             type=extant_file,
-            default=get_project_root() / 'models/yolov5x6_mt_ft_ch.pt',
+            default=get_project_root() / "models/yolov5x6_mt_ft_ch.pt",
             help="path to person detection pretrained model",
         )
         self.parser.add_argument(
@@ -53,7 +52,7 @@ class opts(object):
         self.parser.add_argument(
             "--veh_detection_model",
             type=extant_file,
-            default=get_project_root() / 'models/yolov5n6.pt',
+            default=get_project_root() / "models/yolov5n6.pt",
             help="path to vehicle detection pretrained model",
         )
         self.parser.add_argument(
@@ -66,11 +65,11 @@ class opts(object):
             help="inference size h,w",
         )
 
-        # anomaly detection
+        # image-based anomaly detection
         self.parser.add_argument(
             "--anomaly_model",
             type=extant_file,
-            default=get_project_root() / 'models/mpn_piazza_2_sett_3.pt',
+            default=get_project_root() / "models/mpn_piazza_2_sett_3.pt",
             help="path to anomaly detection pretrained model",
         )
         self.parser.add_argument(
@@ -91,11 +90,48 @@ class opts(object):
             "--alpha", type=float, default=0.5, help="weight for the anomality score"
         )
 
+        # trajectory-based anomaly detection
+        self.parser.add_argument(
+            "--traj_anomaly_model",
+            type=extant_file,
+            default=get_project_root() / "models/mt_trajnet_weights.pt",
+            help="path to trajectory forecasting pretrained model",
+        )
+        self.parser.add_argument(
+            "--traj_anomaly_arch",
+            default="ynet",
+            help="model architecture. Currently only supports ynet",
+        )
+        self.parser.add_argument(
+            "--obs_len", type=int, default=8, help="past timesteps sampled at 2.5 fps"
+        )
+        self.parser.add_argument(
+            "--pred_len",
+            type=int,
+            default=12,
+            help="future timesteps sampled at 2.5 fps",
+        )
+        self.parser.add_argument(
+            "--waypoints",
+            nargs='+',
+            default=[11],
+            help="list of selected goal and waypoints as timestep idx, e.g. 14 means the 14th future timestep is used as a waypoint. Last element is goal timestep",
+        )
+        self.parser.add_argument("--temperature", type=float, default=1.0)
+        self.parser.add_argument("--num_goals", type=int, default=20, help="K_e")
+        self.parser.add_argument("--num_traj", type=int, default=1, help="K_a")
+        self.parser.add_argument(
+            "--resize", type=float, default=1.0, help="resize factor"
+        )
+        self.parser.add_argument("--use_TTST", action="store_true", help="use TTST")
+        self.parser.add_argument("--rel_thresh", type=float, default=0.01)
+        self.parser.add_argument("--use_CWS", action="store_true", help="use CWS")
+
         # tracking
         self.parser.add_argument(
             "--tracking_model",
             type=extant_file,
-            default=get_project_root() / 'models/crowdhuman_dla34.pth',
+            default=get_project_root() / "models/crowdhuman_dla34.pth",
             help="path to tracking pretrained model",
         )
         self.parser.add_argument(
@@ -189,7 +225,7 @@ class opts(object):
         self.parser.add_argument(
             "--output-root",
             type=str,
-            default="../demos",
+            default=get_project_root() / "/demos",
             help="expected output root path",
         )
 
@@ -199,7 +235,7 @@ class opts(object):
             type=bool,
             required=False,
             default=False,
-            help="Flag to store data in InfluxDB"
+            help="Flag to store data in InfluxDB",
         )
 
         self.parser.add_argument(
@@ -230,8 +266,12 @@ class opts(object):
         else:
             opt = self.parser.parse_args(args)
 
-        opt.person_detection_imgsz *= 2 if len(opt.person_detection_imgsz) == 1 else 1  # expand
-        opt.veh_detection_imgsz *= 2 if len(opt.veh_detection_imgsz) == 1 else 1  # expand
+        opt.person_detection_imgsz *= (
+            2 if len(opt.person_detection_imgsz) == 1 else 1
+        )  # expand
+        opt.veh_detection_imgsz *= (
+            2 if len(opt.veh_detection_imgsz) == 1 else 1
+        )  # expand
 
         opt.reg_offset = True
 
