@@ -222,15 +222,15 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
     return nn.Sequential(*layers), sorted(save)
 
 
-def get_yolo(weights, inplace=True):
+def get_yolo(opt):
     # Create model
-    ckpt = torch.load(weights)  # load checkpoint
+    ckpt = torch.load(opt.model_path)  # load checkpoint
     model = Model(ckpt['model'].yaml)  # create
 
     # Compatibility updates
     for m in model.modules():
         if type(m) in [nn.Hardswish, nn.LeakyReLU, nn.ReLU, nn.ReLU6, nn.SiLU, Detect, Model]:
-            m.inplace = inplace  # pytorch 1.7.0 compatibility
+            m.inplace = opt.inplace  # pytorch 1.7.0 compatibility
             if type(m) is Detect:
                 if not isinstance(m.anchor_grid, list):  # new Detect Layer compatibility
                     delattr(m, 'anchor_grid')

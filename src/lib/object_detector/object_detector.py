@@ -8,18 +8,18 @@ from utils.general import check_img_size, non_max_suppression, scale_coords, xyw
 
 
 class ObjectDetector(object):
-    def __init__(self, opt, model_path, imgsz, device):
+    def __init__(self, opt, device):
         print("Creating model...")
         self.opt = opt
-        self.model_path = model_path
+        self.model_path = opt.model_path
         self.device = device
-        self.model = create_model(opt.detection_arch, model_path)
-        self.model = load_model(self.model, model_path, opt.detection_arch)
+        self.model = create_model(opt)
+        self.model = load_model(self.model, opt)
         self.model = self.model.to(device)
         self.model.eval()
 
         self.stride = int(self.model.stride.max())
-        self.imgsz = check_img_size(imgsz, s=self.stride)  # check image size
+        self.imgsz = check_img_size(opt.imgsz, s=self.stride)  # check image size
 
     def pre_process(self, im0):
         # Padded resize

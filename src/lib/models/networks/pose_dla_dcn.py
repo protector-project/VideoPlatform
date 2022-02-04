@@ -482,18 +482,12 @@ class DLASeg(nn.Module):
         return [z]
     
 
-def get_fairmot(model_path=None, num_layers=34, head_conv=256, down_ratio=4):
-    heads = {
-        'hm': 1,
-        'wh': 4,
-        'id': 128,
-        'reg': 2
-    }
-    model = DLASeg('dla{}'.format(num_layers), heads,
+def get_fairmot(opt):
+    model = DLASeg('dla{}'.format(opt.num_layers), opt.heads,
                  pretrained=True,
-                 down_ratio=down_ratio,
-                 final_kernel=1,
-                 last_level=5,
-                 head_conv=head_conv)
+                 down_ratio=opt.down_ratio,
+                 final_kernel=opt.final_kernel,
+                 last_level=opt.last_level,
+                 head_conv=opt.head_conv)
     return model
 

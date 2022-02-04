@@ -18,21 +18,21 @@ _model_factory = {
 }
 
 
-def create_model(arch, model_path=None):
-    get_model = _model_factory[arch]
-    model = get_model(model_path)
+def create_model(opt):
+    get_model = _model_factory[opt.arch]
+    model = get_model(opt)
     return model
 
 
-def load_model(model, model_path, arch, optimizer=None, resume=False, lr=None, lr_step=None):
+def load_model(model, opt, optimizer=None, resume=False, lr=None, lr_step=None):
     start_epoch = 0
-    checkpoint = torch.load(model_path, map_location=lambda storage, loc: storage)
-    print("loaded {}, epoch {}".format(model_path, checkpoint.get("epoch", -1)))
-    if arch == "yolo":
+    checkpoint = torch.load(opt.model_path, map_location=lambda storage, loc: storage)
+    print("loaded {}, epoch {}".format(opt.model_path, checkpoint.get("epoch", -1)))
+    if opt.arch == "yolo":
         state_dict_ = checkpoint.get("model").float().state_dict()
-    elif arch == "mpn" or arch == "fairmot":
+    elif opt.arch == "mpn" or opt.arch == "fairmot":
         state_dict_ = checkpoint.get("state_dict")
-    elif arch == "ynet":
+    elif opt.arch == "ynet":
         state_dict_ = checkpoint
     else:
         raise ValueError("Invalid model architecture, expected one of {yolo, fairmot, mpn, ynet}")

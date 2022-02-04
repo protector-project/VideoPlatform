@@ -4,6 +4,7 @@ from collections import deque
 
 import cv2
 import numpy as np
+from pyparsing import Opt
 import torch
 import torch.nn as nn
 from lib.opts import get_project_root
@@ -61,10 +62,8 @@ class TrajAnomalyDetector:
         print("Creating model...")
         self.opt = opt
         self.device = device
-        self.model = create_model(opt.traj_anomaly_arch)
-        self.model = load_model(
-            self.model, opt.traj_anomaly_model, opt.traj_anomaly_arch
-        )
+        self.model = create_model(opt)
+        self.model = load_model(self.model, opt)
         self.model = self.model.to(device)
         self.model.eval()
 
@@ -89,8 +88,8 @@ class TrajAnomalyDetector:
         input_template = create_dist_mat(size=size)
         self.input_template = torch.Tensor(input_template).to(device)
 
-    def pre_process(self, im0):
-        im = {self.opt.input_name: im0}
+    def pre_process(self, im0, scene_name):
+        im = {scene_name: im0}
         # Preprocess images, in particular resize, pad and normalize as semantic segmentation backbone requires
         resize(im, factor=self.resize, seg_mask=self.seg_mask)
         pad(
@@ -99,9 +98,9 @@ class TrajAnomalyDetector:
         preprocess_image_for_segmentation(im, seg_mask=self.seg_mask)
         return im
 
-    def process_frame(self, im0, trajectories):
-        im = self.pre_process(im0.copy())
-        scene_image = im[self.opt.input_name].to(self.device).unsqueeze(0)
+    def process_frame(self, im0, trajectories, scene_name):
+        im = self.pre_process(im0.copy(), scene_name)
+        scene_image = im[scene_name].to(self.device).unsqueeze(0)
         scene_image = self.model.segmentation(scene_image)
         future_samples_list = []
         waypoint_samples_list = []

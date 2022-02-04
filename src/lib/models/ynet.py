@@ -284,30 +284,21 @@ class YNetTorch(nn.Module):
         return softargmax_coords
 
 
-def get_ynet(model_path=None, obs_len=8, pred_len=12):
+def get_ynet(opt):
     """
     Ynet class, following a sklearn similar class structure
     :param obs_len: observed timesteps
     :param pred_len: predicted timesteps
     :param params: dictionary with hyperparameters
     """
-    params = {
-        "segmentation_model_fp": None,
-        "use_features_only": False,
-        "semantic_classes": 0,
-        "encoder_channels": [32, 32, 64, 64, 64],
-        "decoder_channels": [64, 64, 64, 32, 32],
-        "waypoints": [11]
-    }
     model = YNetTorch(
-        obs_len=obs_len,
-        pred_len=pred_len,
-        segmentation_model_fp=params["segmentation_model_fp"],
-        use_features_only=params["use_features_only"],
-        semantic_classes=params["semantic_classes"],
-        encoder_channels=params["encoder_channels"],
-        decoder_channels=params["decoder_channels"],
-        waypoints=len(params["waypoints"]),
+        obs_len=opt.obs_len,
+        pred_len=opt.pred_len,
+        segmentation_model_fp=opt.segmentation_model_fp,
+        use_features_only=opt.use_features_only,
+        semantic_classes=opt.semantic_classes,
+        encoder_channels=opt.encoder_channels,
+        decoder_channels=opt.decoder_channels,
+        waypoints=len(opt.waypoints),
     )
-
     return model
