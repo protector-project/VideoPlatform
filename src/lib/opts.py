@@ -232,9 +232,7 @@ class opts(object):
         # database
         self.parser.add_argument(
             "--use_database",
-            type=bool,
-            required=False,
-            default=False,
+            action="store_true",
             help="Flag to store data in InfluxDB",
         )
 
