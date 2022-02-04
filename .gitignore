@@ -183,5 +183,6 @@ cython_debug/
 video_samples/
 playground/
 
+assets/
 DCNv2/
 .vscode/launch.json
