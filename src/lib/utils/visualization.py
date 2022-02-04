@@ -96,7 +96,7 @@ def plot_tracking(image, tlwhs, obj_ids, scores=None, frame_id=0, fps=0.0, ids2=
 	radius = max(5, int(im_w / 140.0))
 	cv2.putText(
 		im,
-		"frame: %d fps: %.2f num: %d" % (frame_id, fps, len(tlwhs)),
+		"frame: %d num: %d" % (frame_id, len(tlwhs)),
 		(0, int(30 * text_scale)),
 		cv2.FONT_HERSHEY_SIMPLEX,
 		text_scale,
@@ -139,9 +139,11 @@ def plot_trajectories(gt_future, future_samples, observed, im, resize, with_bg=T
 	# plt.imshow(scene_image_rescaled, alpha=0.001)
 	if with_bg:
 		# plt.imshow(scene_image_rescaled)
-		plt.imshow(im_rescaled, alpha=0.7)
+		plt.imshow(im_rescaled)
 	plt.legend()							
 
 	if save_path is not None:
 		plt.savefig(save_path)
+	plt.axis('off')
 	plt.show()
+	plt.savefig("test.png", bbox_inches='tight')
