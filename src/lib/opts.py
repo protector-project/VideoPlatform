@@ -69,7 +69,7 @@ class opts(object):
         self.parser.add_argument(
             "--anomaly_model",
             type=extant_file,
-            default=get_project_root() / "models/mpn_piazza_2_sett_3.pt",
+            default=get_project_root() / "models/mpn_piazza_2_sett_3_new.pt",
             help="path to anomaly detection pretrained model",
         )
         self.parser.add_argument(
