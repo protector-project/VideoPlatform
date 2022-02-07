@@ -12,20 +12,19 @@ from models.model import create_model, load_model
 
 
 class AnomalyDetector:
-    def __init__(self, opt, device, img_size=(256, 256)):
+    def __init__(self, opt, device):
         print("Creating model...")
         self.opt = opt
         self.device = device
-        self.img_size = img_size
-        self.model = create_model(opt.anomaly_arch)
-        self.model = load_model(self.model, opt.anomaly_model, opt.anomaly_arch)
+        self.model = create_model(opt)
+        self.model = load_model(self.model, opt)
         self.model = self.model.to(device)
         self.model.eval()
 
         # Parameters
         self.t_length = opt.t_length
-        self.h = opt.anomaly_h
-        self.w = opt.anomaly_w
+        self.h = opt.h
+        self.w = opt.w
         self.alpha = opt.alpha
 
         self.psnr_list = []

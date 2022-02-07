@@ -4,6 +4,7 @@ from __future__ import print_function
 
 import argparse
 import os
+import yaml
 from pathlib import Path
 
 
@@ -20,195 +21,15 @@ def extant_file(fname):
     return fname
 
 
+class Struct:
+    def __init__(self, entries):
+        for k, v in entries.items():
+            self.__setattr__(k, v)
+
+
 class opts(object):
     def __init__(self):
         self.parser = argparse.ArgumentParser()
-
-        # object detection
-        self.parser.add_argument(
-            "--detection_arch",
-            default="yolo",
-            help="model architecture. Currently only supports yolo",
-        )
-
-        # person detection
-        self.parser.add_argument(
-            "--person_detection_model",
-            type=extant_file,
-            default=get_project_root() / "models/yolov5x6_mt_ft_ch.pt",
-            help="path to person detection pretrained model",
-        )
-        self.parser.add_argument(
-            "--person_detection_imgsz",
-            "--person_detection_img",
-            "--person_detection_img_size",
-            nargs="+",
-            type=int,
-            default=[1280],
-            help="inference size h,w",
-        )
-
-        # vehicle detection
-        self.parser.add_argument(
-            "--veh_detection_model",
-            type=extant_file,
-            default=get_project_root() / "models/yolov5n6.pt",
-            help="path to vehicle detection pretrained model",
-        )
-        self.parser.add_argument(
-            "--veh_detection_imgsz",
-            "--veh_detection_img",
-            "--veh_detection_img_size",
-            nargs="+",
-            type=int,
-            default=[1280],
-            help="inference size h,w",
-        )
-
-        # image-based anomaly detection
-        self.parser.add_argument(
-            "--anomaly_model",
-            type=extant_file,
-            default=get_project_root() / "models/mpn_piazza_2_sett_3_new.pt",
-            help="path to anomaly detection pretrained model",
-        )
-        self.parser.add_argument(
-            "--anomaly_arch",
-            default="mpn",
-            help="model architecture. Currently only supports mpn",
-        )
-        self.parser.add_argument(
-            "--anomaly_h", type=int, default=256, help="height of input images"
-        )
-        self.parser.add_argument(
-            "--anomaly_w", type=int, default=256, help="width of input images"
-        )
-        self.parser.add_argument(
-            "--t_length", type=int, default=5, help="length of the frame sequences"
-        )
-        self.parser.add_argument(
-            "--alpha", type=float, default=0.5, help="weight for the anomality score"
-        )
-
-        # trajectory-based anomaly detection
-        self.parser.add_argument(
-            "--traj_anomaly_model",
-            type=extant_file,
-            default=get_project_root() / "models/mt_trajnet_weights.pt",
-            help="path to trajectory forecasting pretrained model",
-        )
-        self.parser.add_argument(
-            "--traj_anomaly_arch",
-            default="ynet",
-            help="model architecture. Currently only supports ynet",
-        )
-        self.parser.add_argument(
-            "--obs_len", type=int, default=8, help="past timesteps sampled at 2.5 fps"
-        )
-        self.parser.add_argument(
-            "--pred_len",
-            type=int,
-            default=12,
-            help="future timesteps sampled at 2.5 fps",
-        )
-        self.parser.add_argument(
-            "--waypoints",
-            nargs='+',
-            default=[11],
-            help="list of selected goal and waypoints as timestep idx, e.g. 14 means the 14th future timestep is used as a waypoint. Last element is goal timestep",
-        )
-        self.parser.add_argument("--temperature", type=float, default=1.0)
-        self.parser.add_argument("--num_goals", type=int, default=20, help="K_e")
-        self.parser.add_argument("--num_traj", type=int, default=1, help="K_a")
-        self.parser.add_argument(
-            "--resize", type=float, default=1.0, help="resize factor"
-        )
-        self.parser.add_argument("--use_TTST", action="store_true", help="use TTST")
-        self.parser.add_argument("--rel_thresh", type=float, default=0.01)
-        self.parser.add_argument("--use_CWS", action="store_true", help="use CWS")
-
-        # tracking
-        self.parser.add_argument(
-            "--tracking_model",
-            type=extant_file,
-            default=get_project_root() / "models/crowdhuman_dla34.pth",
-            help="path to tracking pretrained model",
-        )
-        self.parser.add_argument(
-            "--tracking_arch",
-            default="fairmot",
-            help="model architecture. Currently only supports fairmot",
-        )
-        self.parser.add_argument(
-            "--down_ratio",
-            type=int,
-            default=4,
-            help="output stride. Currently only supports 4.",
-        )
-        self.parser.add_argument(
-            "--input_res",
-            type=int,
-            default=-1,
-            help="input height and width. -1 for default from "
-            "dataset. Will be overriden by input_h | input_w",
-        )
-        self.parser.add_argument(
-            "--input_h",
-            type=int,
-            default=-1,
-            help="input height. -1 for default from dataset.",
-        )
-        self.parser.add_argument(
-            "--input_w",
-            type=int,
-            default=-1,
-            help="input width. -1 for default from dataset.",
-        )
-        self.parser.add_argument(
-            "--K", type=int, default=500, help="max number of output objects."
-        )
-        self.parser.add_argument(
-            "--conf_thres",
-            type=float,
-            default=0.4,
-            help="confidence thresh for tracking",
-        )
-        self.parser.add_argument(
-            "--det_thres",
-            type=float,
-            default=0.3,
-            help="confidence thresh for detection",
-        )
-        self.parser.add_argument(
-            "--nms_thres", type=float, default=0.4, help="iou thresh for nms"
-        )
-        self.parser.add_argument(
-            "--track_buffer", type=int, default=30, help="tracking buffer"
-        )
-        self.parser.add_argument(
-            "--min_box_area", type=float, default=100, help="filter out tiny boxes"
-        )
-        self.parser.add_argument(
-            "--reid_dim", type=int, default=128, help="feature dim for reid"
-        )
-        self.parser.add_argument(
-            "--ltrb", default=True, help="regress left, top, right, bottom of bbox"
-        )
-
-        # system
-        self.parser.add_argument(
-            "--device", default="", help="cuda device, i.e. 0 or 0,1,2,3 or cpu"
-        )
-        self.parser.add_argument(
-            "--num_workers",
-            type=int,
-            default=8,
-            help="dataloader threads. 0 for single-thread.",
-        )
-        self.parser.add_argument(
-            "--seed", type=int, default=317, help="random seed"
-        )  # from CornerNet
-
         # IO
         self.parser.add_argument(
             "--input_video",
@@ -223,40 +44,19 @@ class opts(object):
             help="name of the input scene",
         )
         self.parser.add_argument(
-            "--output-root",
+            "--output_root",
             type=str,
             default=get_project_root() / "/demos",
             help="expected output root path",
         )
 
-        # database
+        # config
         self.parser.add_argument(
-            "--use_database",
-            action="store_true",
-            help="Flag to store data in InfluxDB",
-        )
-
-        self.parser.add_argument(
-            "-DH",
-            "--database_host",
-            type=str,
-            required=False,
-            help="IP address of the database",
-        )
-        self.parser.add_argument(
-            "-DP",
-            "--database_port",
-            type=str,
-            required=False,
-            help="port number of the database",
-        )
-        self.parser.add_argument(
-            "-DN",
-            "--database_name",
-            type=str,
-            required=False,
-            help="name of the Database",
-        )
+            "--config_file",
+            type=extant_file,
+            required=True,
+            help="path to config file",
+        )  
 
     def parse(self, args=""):
         if args == "":
@@ -264,16 +64,26 @@ class opts(object):
         else:
             opt = self.parser.parse_args(args)
 
-        opt.person_detection_imgsz *= (
-            2 if len(opt.person_detection_imgsz) == 1 else 1
-        )  # expand
-        opt.veh_detection_imgsz *= (
-            2 if len(opt.veh_detection_imgsz) == 1 else 1
-        )  # expand
+        # Load config file and add to command-line-arguments
+        with open(opt.config_file) as file:
+            params = yaml.load(file, Loader=yaml.FullLoader)
+            delattr(opt, 'config_file')
+            opt_dict = opt.__dict__
+            for key, value in params.items():
+                if isinstance(value, dict):
+                    opt_dict[key] = Struct(value)
+                elif isinstance(value, list):
+                    for v in value:
+                        opt_dict[key].extend(v)
+                else:
+                    opt_dict[key] = value
 
-        opt.reg_offset = True
-
-        opt.head_conv = 256
+        opt.person_detection.imgsz *= (
+            2 if len(opt.person_detection.imgsz) == 1 else 1
+        )  # expand
+        opt.veh_detection.imgsz *= (
+            2 if len(opt.veh_detection.imgsz) == 1 else 1
+        )  # expand
 
         opt.root_dir = os.path.join(os.path.dirname(__file__), "..", "..")
         opt.save_dir = os.path.join(opt.root_dir, "exp", opt.input_name)
@@ -320,13 +130,8 @@ class opts(object):
             "nID": 14455,
         }
 
-        class Struct:
-            def __init__(self, entries):
-                for k, v in entries.items():
-                    self.__setattr__(k, v)
-
         opt = self.parse(args)
         dataset = Struct(default_dataset_info)
         opt.dataset = dataset.dataset
-        opt = self.update_dataset_info_and_set_heads(opt, dataset)
+        opt.tracking = self.update_dataset_info_and_set_heads(opt.tracking, dataset)
         return opt

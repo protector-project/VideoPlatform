@@ -167,8 +167,8 @@ class Tracker(object):
         self.opt = opt
         self.device = device
         self.frame_rate = frame_rate
-        self.model = create_model(opt.tracking_arch)
-        self.model = load_model(self.model, opt.tracking_model, opt.tracking_arch)
+        self.model = create_model(opt)
+        self.model = load_model(self.model, opt)
         self.model = self.model.to(device)
         self.model.eval()
 
