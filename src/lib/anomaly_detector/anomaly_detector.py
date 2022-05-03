@@ -32,6 +32,9 @@ class AnomalyDetector:
         self.buffer = deque(maxlen=self.t_length)
         self.loss_func_mse = nn.MSELoss(reduction="none")
 
+        self.pred_err_buffer = []
+        self.norm_err_buffer = []
+
     def pre_process(self, im0):
         """
         Convert image to numpy.ndarray. Notes that the color channels are BGR and the color space
@@ -69,10 +72,12 @@ class AnomalyDetector:
             )
 
             mse_imgs = self.loss_func_mse((outputs[:] + 1) / 2, (imgs[:, -3:] + 1) / 2)
+            self.pred_err_buffer.append(mse_imgs.squeeze(dim=0))
 
             mse_feas = fea_loss.mean(-1)
 
             mse_feas = mse_feas.reshape((-1, 1, self.w, self.h))
+            self.norm_err_buffer.append(mse_feas.squeeze(dim=0))
             mse_imgs = mse_imgs.view((mse_imgs.shape[0], -1))
             mse_imgs = mse_imgs.mean(-1)
             mse_feas = mse_feas.view((mse_feas.shape[0], -1))
@@ -83,6 +88,9 @@ class AnomalyDetector:
                 fea_score = self.psnr(mse_feas[j].item())
                 self.psnr_list.append(psnr_score)
                 self.feature_distance_list.append(fea_score)
+        else:
+            self.pred_err_buffer.append(torch.zeros(img.shape[1:]))
+            self.norm_err_buffer.append(torch.zeros(img.shape[1:]))
 
     def measure_anomaly_scores(self):
         template = self.calc(15, 2)

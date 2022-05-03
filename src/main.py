@@ -24,7 +24,7 @@ from lib.tracker.tracker import Tracker
 from lib.utils.preprocessing import load_and_window_MT
 
 from lib.utils.torch_utils import select_device
-from lib.utils.visualization import plot_anomaly, plot_boxes, plot_tracking, plot_trajectories
+from lib.utils.visualization import plot_anomaly, plot_boxes, plot_pred_err, plot_norm_err, plot_tracking, plot_trajectories
 
 
 VEHICLES_LABELS = ["bicycle", "car", "motorcycle", "bus", "truck"]
@@ -35,16 +35,16 @@ def main(opt):
 	# Load models
 	device = select_device(opt.device)
 	anomaly_detector = AnomalyDetector(opt.img_anomaly_detection, device)
-	person_detector = ObjectDetector(
-		opt.person_detection, device
-	)
-	veh_detector = ObjectDetector(
-		opt.veh_detection, device
-	)
+	# person_detector = ObjectDetector(
+	# 	opt.person_detection, device
+	# )
+	# veh_detector = ObjectDetector(
+	# 	opt.veh_detection, device
+	# )
 	# tracker = Tracker(opt.tracking, device)
 	# traj_anomaly_detector = TrajAnomalyDetector(opt.traj_anomaly_detection, device)
 
-	veh_classes = [veh_detector.model.names.index(veh) for veh in VEHICLES_LABELS]
+	# veh_classes = [veh_detector.model.names.index(veh) for veh in VEHICLES_LABELS]
 
 	if opt.use_database:
 		influx = InfluxClient(
@@ -68,9 +68,9 @@ def main(opt):
 			# Inference
 
 			################################################ video object detection ################################################
-			person_results = person_detector.process_frame(im0s)
-			veh_results = veh_detector.process_frame(im0s, veh_classes)
-			img = plot_boxes(person_results + veh_results, im0s)
+			# person_results = person_detector.process_frame(im0s)
+			# veh_results = veh_detector.process_frame(im0s, veh_classes)
+			# img = plot_boxes(person_results + veh_results, im0s)
 
 			################################################ video anomaly detection (image) ################################################
 			anomaly_detector.process_frame(im0s)
@@ -111,6 +111,8 @@ def main(opt):
 
 	################################################ video anomaly detection (image) ################################################
 	anomaly_scores = anomaly_detector.measure_anomaly_scores()
+	max_pred_err = max([pred_err.data.cpu().numpy().mean(0).max() for pred_err in anomaly_detector.pred_err_buffer])
+	max_norm_err = max([norm_err.data.cpu().numpy().mean(0).max() for norm_err in anomaly_detector.norm_err_buffer])
 
 	################################################ video anomaly detection (trajectory) ################################################
 	# scene_df = load_and_window_MT(
@@ -130,12 +132,18 @@ def main(opt):
 		################################################ video anomaly detection (image) ################################################
 		score_idx = i - (anomaly_detector.t_length - 1)
 		anomaly_score = anomaly_scores[score_idx] if score_idx >= 0 else -1
+		pred_err = anomaly_detector.pred_err_buffer[frame_id].data.cpu().numpy()
+		norm_err = anomaly_detector.norm_err_buffer[frame_id].data.cpu().numpy()
 		img = plot_anomaly(im0s, anomaly_score, frame_id=frame_id)
+		pred_err_img = plot_pred_err(im0s, pred_err, max_pred_err, opt.img_anomaly_detection.w, opt.img_anomaly_detection.h)
+		recon_err_img = plot_norm_err(im0s, norm_err, max_norm_err, opt.img_anomaly_detection.w, opt.img_anomaly_detection.h)
 
 		################################################ visualization (anomaly) ################################################
-		cv2.namedWindow('frame', cv2.WINDOW_NORMAL)
-		cv2.setWindowProperty('frame', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-		cv2.imshow('frame', img)
+		# concatenate image horizontally
+		hori = np.concatenate((img, pred_err_img, recon_err_img), axis=1)
+		cv2.namedWindow('anomaly', cv2.WINDOW_NORMAL)
+		cv2.setWindowProperty('anomaly', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+		cv2.imshow('anomaly', hori)
 		if cv2.waitKey(1) & 0xFF == ord("q"):
 			cv2.destroyAllWindows()
 			vid_cap.release()

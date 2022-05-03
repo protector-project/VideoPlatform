@@ -67,12 +67,12 @@ def plot_anomaly(
 		text_scale = max(font_scale, im0.shape[1] / 1600.0)
 		top_left_corner_of_text = (0, int(30 * text_scale))
 
-		anomaly_description = "Anomalous" if anomaly_score < anomaly_thres else "Normal"
-		color = (0, 0, 255) if anomaly_description == "Anomalous" else (0, 255, 0)
+		anomaly_text = "Anomalous" if anomaly_score < anomaly_thres else "Normal"
+		color = (0, 0, 255) if anomaly_text == "Anomalous" else (0, 255, 0)
 
 		cv2.putText(
 			im,
-			f"frame: {frame_id} event: {anomaly_description} score: {anomaly_score:.2f}",
+			f"frame: {frame_id} event: {anomaly_text} score: {anomaly_score:.2f}",
 			top_left_corner_of_text,
 			font,
 			text_scale,
@@ -80,6 +80,34 @@ def plot_anomaly(
 			thickness=thickness,
 		)
 
+	return im
+
+
+def plot_pred_err(im0, pred_err, max_val, resize_width, resize_height):
+	pred_err = pred_err.mean(0)
+	pred_err *= 255.0/max_val
+	pred_err = pred_err.astype(np.uint8)
+	pred_err = np.expand_dims(pred_err, axis=0)
+	pred_err = np.transpose(pred_err, (1, 2, 0))
+	img_resized = cv2.resize(im0, (resize_width, resize_height))
+	heatmap_img = cv2.applyColorMap(pred_err, cv2.COLORMAP_JET)
+	im = cv2.addWeighted(heatmap_img, 0.7, img_resized, 0.3, 0)
+	h, w, c = im0.shape
+	im = cv2.resize(im, (w, h))
+	return im
+
+
+def plot_norm_err(im0, norm_err, max_val, resize_width, resize_height):
+	norm_err = norm_err.mean(0)
+	norm_err *= 255.0/max_val
+	norm_err = norm_err.astype(np.uint8)
+	norm_err = np.expand_dims(norm_err, axis=0)
+	norm_err = np.transpose(norm_err, (1, 2, 0))
+	img_resized = cv2.resize(im0, (resize_width, resize_height))
+	heatmap_img = cv2.applyColorMap(norm_err, cv2.COLORMAP_JET)
+	im = cv2.addWeighted(heatmap_img, 0.7, img_resized, 0.3, 0)
+	h, w, c = im0.shape
+	im = cv2.resize(im, (w, h))
 	return im
 
 
@@ -126,6 +154,7 @@ def plot_tracking(image, tlwhs, obj_ids, scores=None, frame_id=0, fps=0.0, ids2=
 			thickness=text_thickness,
 		)
 	return im
+
 
 def plot_trajectories(gt_future, future_samples, observed, im, resize, with_bg=True, save_path=None):
 	plt.scatter(gt_future.detach().cpu()[0,:,0] / resize, gt_future.detach().cpu()[0,:,1] / resize, label='ground truth', zorder=3)
