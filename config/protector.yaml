@@ -11,6 +11,7 @@ database_name: '' # name of the Database
 
 ################################################ person detection ################################################
 person_detection:
+  enabled: True
   arch: yolo  # model architecture. Currently only supports yolo
   model_path: models/yolov5x6_mt_ft_ch.pt  # path to person detection pretrained model
   imgsz: [1280]  # inference size h,w
@@ -18,6 +19,7 @@ person_detection:
 
 ################################################ vehicle detection ################################################
 veh_detection:
+  enabled: False
   arch: yolo  # model architecture. Currently only supports yolo
   model_path: models/yolov5n6.pt  # path to person detection pretrained model
   imgsz: [1280]  # inference size h,w
@@ -25,8 +27,9 @@ veh_detection:
 
 ################################################ image-based anomaly detection ################################################
 img_anomaly_detection:
+  enabled: True
   arch: mpn  # model architecture. Currently only supports mpn
-  model_path: models/mpn_piazza_2_sett_3_new.pt  # path to anomaly detection pretrained model
+  model_path: models/mpn_piazza_fiera_1.pt  # path to anomaly detection pretrained model
   h: 256  # height of input images
   w: 256  # width of input images
   t_length: 5  # length of the frame sequences
@@ -38,6 +41,7 @@ img_anomaly_detection:
 
 ################################################ trajectory-based anomaly detection ################################################
 traj_anomaly_detection:
+  enabled: False
   arch: ynet  # model architecture. Currently only supports yolo
   model_path: models/mt_trajnet_weights.pt  # path to trajectory forecasting pretrained model
   obs_len: 8  # past timesteps sampled at 2.5 fps
@@ -58,6 +62,7 @@ traj_anomaly_detection:
 
 ################################################ tracking ################################################
 tracking:
+  enabled: False
   arch: fairmot  # model architecture. Currently only supports fairmot
   model_path: models/crowdhuman_dla34.pth  # path to tracking pretrained model
   down_ratio: 4  # output stride. Currently only supports 4
