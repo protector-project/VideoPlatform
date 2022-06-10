@@ -1,1 +1,1 @@
-docker build --no-cache --rm -t dvl-videoplatform-vbezerra:devel .
+docker build --no-cache --rm -t dvl-protector-lzanella:devel .
