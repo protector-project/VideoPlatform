@@ -84,29 +84,39 @@ def plot_anomaly(
 
 
 def plot_pred_err(im0, pred_err, max_val, resize_width, resize_height):
+	imc = np.ascontiguousarray(np.copy(im0))
 	pred_err = pred_err.mean(0)
 	pred_err *= 255.0/max_val
 	pred_err = pred_err.astype(np.uint8)
-	pred_err = np.expand_dims(pred_err, axis=0)
-	pred_err = np.transpose(pred_err, (1, 2, 0))
-	img_resized = cv2.resize(im0, (resize_width, resize_height))
+	# th = cv2.threshold(pred_err, 127, 255, cv2.THRESH_BINARY)[1]
+	# th = cv2.adaptiveThreshold(pred_err,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY,11,2)
+	# blur = cv2.GaussianBlur(th, (13,13), 11)
+	# pred_err = np.expand_dims(pred_err, axis=0)
+	# pred_err = np.transpose(pred_err, (1, 2, 0))
+	img_resized = cv2.resize(imc, (resize_width, resize_height))
+	# heatmap_img = cv2.applyColorMap(blur, cv2.COLORMAP_JET)
 	heatmap_img = cv2.applyColorMap(pred_err, cv2.COLORMAP_JET)
 	im = cv2.addWeighted(heatmap_img, 0.7, img_resized, 0.3, 0)
-	h, w, c = im0.shape
+	h, w, c = imc.shape
 	im = cv2.resize(im, (w, h))
 	return im
 
 
 def plot_norm_err(im0, norm_err, max_val, resize_width, resize_height):
+	imc = np.ascontiguousarray(np.copy(im0))
 	norm_err = norm_err.mean(0)
 	norm_err *= 255.0/max_val
 	norm_err = norm_err.astype(np.uint8)
-	norm_err = np.expand_dims(norm_err, axis=0)
-	norm_err = np.transpose(norm_err, (1, 2, 0))
-	img_resized = cv2.resize(im0, (resize_width, resize_height))
+	# th = cv2.threshold(norm_err, 127, 255, cv2.THRESH_BINARY)[1]
+	# th = cv2.adaptiveThreshold(norm_err,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY,11,2)
+	# blur = cv2.GaussianBlur(th, (13,13), 11)
+	# norm_err = np.expand_dims(norm_err, axis=0)
+	# norm_err = np.transpose(norm_err, (1, 2, 0))
+	img_resized = cv2.resize(imc, (resize_width, resize_height))
+	# heatmap_img = cv2.applyColorMap(blur, cv2.COLORMAP_JET)
 	heatmap_img = cv2.applyColorMap(norm_err, cv2.COLORMAP_JET)
 	im = cv2.addWeighted(heatmap_img, 0.7, img_resized, 0.3, 0)
-	h, w, c = im0.shape
+	h, w, c = imc.shape
 	im = cv2.resize(im, (w, h))
 	return im
 
