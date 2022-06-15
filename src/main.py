@@ -1,6 +1,8 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+import enum
+from pathlib import Path
 
 import numpy as np
 
@@ -11,6 +13,7 @@ import cv2
 import torch
 import influxdb
 import pandas as pd
+import datetime
 
 from tqdm import tqdm
 from lib.anomaly_detector.traj_anomaly_detector import TrajAnomalyDetector
@@ -18,6 +21,8 @@ from lib.anomaly_detector.traj_anomaly_detector import TrajAnomalyDetector
 from lib.object_detector.object_detector import ObjectDetector
 from lib.anomaly_detector.anomaly_detector import AnomalyDetector
 from lib.influx.influx_client import InfluxClient
+from lib.influx.json_influx import InfluxJson
+from lib.influx.video_output import VideoOutput
 from lib.datasets.dataset import LoadImages
 from lib.opts import get_project_root, opts
 from lib.tracker.tracker import Tracker
@@ -28,6 +33,7 @@ from lib.utils.visualization import plot_anomaly, plot_boxes, plot_pred_err, plo
 
 
 VEHICLES_LABELS = ["bicycle", "car", "motorcycle", "bus", "truck"]
+OBJECTS_LABELS = ['pedestrian', 'people', 'bicycle', 'car', 'van', 'truck', 'tricycle', 'awning-tricycle', 'bus', 'motor']
 
 
 @torch.no_grad()
@@ -40,6 +46,7 @@ def main(opt):
 		person_detector = ObjectDetector(
 			opt.person_detection, device
 		)
+		person_index = person_detector.model.names.index("person")
 	if opt.veh_detection.enabled:
 		veh_detector = ObjectDetector(
 			opt.veh_detection, device
@@ -57,6 +64,10 @@ def main(opt):
 			database=opt.database_name,
 		)
 		influx.createConnection()
+  
+	if opt.produce_files.enable:
+		video_output = VideoOutput(opt.input_video)
+		json_output = InfluxJson(opt.input_video)
 
 	count = -20
 
@@ -95,8 +106,12 @@ def main(opt):
 			imc = im0s.copy()
 			if opt.person_detection.enabled:
 				imc = plot_boxes(person_results + veh_results, imc)
+				if opt.produce_files.enable:
+					video_output.write_objects(im0s, imc)
 			if opt.tracking.enabled:
 				imc = plot_tracking(imc, online_tlwhs, online_ids, frame_id=frame_id)
+				if opt.produce_files.enable:
+					video_output.write_tracking(imc)
 			
 			cv2.namedWindow("frame", cv2.WINDOW_NORMAL)
 			cv2.setWindowProperty(
@@ -117,6 +132,18 @@ def main(opt):
 					influx.insertObjects(
 						opt.input_name, opt.input_video, veh_results, frame_time
 					)
+     
+			if opt.produce_files.enable:
+				# write JSON
+				frame_time = vid_cap.get(cv2.CAP_PROP_POS_MSEC) / 1000
+				if person_results:
+					count_label = person_detector.count_label(person_results, person_index)
+					json_output.add_humans(opt.input_name, count_label, frame_time)
+				if veh_results:
+					for label in veh_classes:
+						count_label = veh_detector.count_label(veh_results, label)
+						label_name = veh_detector.cls2label(label)
+						json_output.add_vehicles(opt.input_name, opt.input_video, label_name, count_label, frame_time)
 
 			frame_id += 1
 			pbar.update(1)
@@ -152,6 +179,11 @@ def main(opt):
 			img = plot_anomaly(im0s, anomaly_score, frame_id=frame_id)
 			pred_err_img = plot_pred_err(im0s, pred_err, max_pred_err, opt.img_anomaly_detection.w, opt.img_anomaly_detection.h)
 			recon_err_img = plot_norm_err(im0s, norm_err, max_norm_err, opt.img_anomaly_detection.w, opt.img_anomaly_detection.h)
+   
+			if opt.produce_files.enable:
+				frame_time = vid_cap.get(cv2.CAP_PROP_POS_MSEC) / 1000
+				json_output.add_anomaly(opt.input_name, anomaly_score, opt.input_video, frame_time)
+				video_output.write_anomaly(img, pred_err_img, recon_err_img)
 
 			################################################ visualization (anomaly) ################################################
 			# concatenate image horizontally
@@ -214,6 +246,9 @@ def main(opt):
 		frame_id += 1
 
 	cv2.destroyAllWindows()
+	if opt.produce_files.enable:
+		json_output.close()
+		video_output.release_all()
 
 
 if __name__ == "__main__":
