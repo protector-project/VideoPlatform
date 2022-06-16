@@ -71,13 +71,22 @@ class ObjectDetector(object):
     def cls2label(self, cls):
         """
         For a given class, return corresponding string label.
-        :param x: numeric label
+        :param cls: numeric label
         :return: corresponding string label
         """
         c = int(cls)  # integer class
         label = self.model.names[c]
         return label
+    
+    def label2cls(self, label):
+        """
+        For a given label, return corresponding numeric class.
+        :param label: string label
+        :return: corresponding numeric class
+        """
+        cls = self.model.names.index(label)  # integer class
+        return cls
 
-    def count_label(self, results, label):
-        n = len([cls == label for cls, *xywh, conf in results])
+    def count_label(self, results, t_label):
+        n = len([p_label == t_label for p_label, *xywh, conf in results])
         return n

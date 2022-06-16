@@ -19,7 +19,7 @@ def get_color(idx):
 	return color
 
 
-def plot_boxes(results, im0, color=(128, 128, 128), txt_color=(255, 255, 255), lw=3):
+def plot_boxes(results, im0, names, color=(128, 128, 128), txt_color=(255, 255, 255), lw=3):
 	"""
 	Takes a frame and its results as input, and plots the bounding boxes and label on to the frame.
 	:param results: contains labels and coordinates predicted by model on the given frame.
@@ -30,9 +30,9 @@ def plot_boxes(results, im0, color=(128, 128, 128), txt_color=(255, 255, 255), l
 	for label, *xyxy, conf in results:
 		# xyxy = xywh2xyxy(torch.tensor(xywh).view(1, 4))
 		p1, p2 = (int(xyxy[0]), int(xyxy[1])), (int(xyxy[2]), int(xyxy[3]))
+		color = get_color(names.index(label))
 		cv2.rectangle(im0, p1, p2, color=color, thickness=lw, lineType=cv2.LINE_AA)
 		tf = max(lw - 1, 1)  # font thickness
-		# label = self.cls2label(cls)
 		w, h = cv2.getTextSize(label, 0, fontScale=lw / 3, thickness=tf)[
 			0
 		]  # text width, height

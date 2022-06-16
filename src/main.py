@@ -32,6 +32,7 @@ from lib.utils.torch_utils import select_device
 from lib.utils.visualization import plot_anomaly, plot_boxes, plot_pred_err, plot_norm_err, plot_tracking, plot_trajectories
 
 
+PERSON_LABEL = "person"
 VEHICLES_LABELS = ["bicycle", "car", "motorcycle", "bus", "truck"]
 OBJECTS_LABELS = ['pedestrian', 'people', 'bicycle', 'car', 'van', 'truck', 'tricycle', 'awning-tricycle', 'bus', 'motor']
 
@@ -40,22 +41,27 @@ OBJECTS_LABELS = ['pedestrian', 'people', 'bicycle', 'car', 'van', 'truck', 'tri
 def main(opt):
 	# Load models
 	device = select_device(opt.device)
+	names = []
 	if opt.img_anomaly_detection.enabled:
 		anomaly_detector = AnomalyDetector(opt.img_anomaly_detection, device)
 	if opt.person_detection.enabled:
 		person_detector = ObjectDetector(
 			opt.person_detection, device
 		)
-		person_index = person_detector.model.names.index("person")
+		person_class = [person_detector.model.names.index(PERSON_LABEL)]
+		names += person_detector.model.names
 	if opt.veh_detection.enabled:
 		veh_detector = ObjectDetector(
 			opt.veh_detection, device
 		)
 		veh_classes = [veh_detector.model.names.index(veh) for veh in VEHICLES_LABELS]
+		names += veh_detector.model.names
 	if opt.tracking.enabled:
 		tracker = Tracker(opt.tracking, device)
 	if opt.traj_anomaly_detection.enabled:
 		traj_anomaly_detector = TrajAnomalyDetector(opt.traj_anomaly_detection, device)
+
+	names = sorted(list(set(names)))
 
 	if opt.use_database:
 		influx = InfluxClient(
@@ -66,8 +72,12 @@ def main(opt):
 		influx.createConnection()
   
 	if opt.produce_files.enable:
-		video_output = VideoOutput(opt.input_video)
-		json_output = InfluxJson(opt.input_video)
+		video_output = VideoOutput(opt)
+		try:
+			json_output = InfluxJson(opt.input_video)
+		except ValueError:
+			print(f"filename {opt.input_video} not correctly formatted")
+			exit()
 
 	count = -20
 
@@ -84,7 +94,7 @@ def main(opt):
 
 			################################################ video object detection ################################################
 			if opt.person_detection.enabled:
-				person_results = person_detector.process_frame(im0s)
+				person_results = person_detector.process_frame(im0s, person_class)
 			if opt.veh_detection.enabled:
 				veh_results = veh_detector.process_frame(im0s, veh_classes)
 
@@ -104,24 +114,25 @@ def main(opt):
 
 			################################################ visualization (detection/tracking) ################################################
 			imc = im0s.copy()
+			video_output.write_original(imc)
 			if opt.person_detection.enabled:
-				imc = plot_boxes(person_results + veh_results, imc)
+				imc = plot_boxes(person_results + veh_results, imc, names)
 				if opt.produce_files.enable:
-					video_output.write_objects(im0s, imc)
+					video_output.write_objects(imc)
 			if opt.tracking.enabled:
 				imc = plot_tracking(imc, online_tlwhs, online_ids, frame_id=frame_id)
 				if opt.produce_files.enable:
 					video_output.write_tracking(imc)
 			
-			cv2.namedWindow("frame", cv2.WINDOW_NORMAL)
-			cv2.setWindowProperty(
-				"frame", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN
-			)
-			cv2.imshow("frame", imc)
-			if cv2.waitKey(1) & 0xFF == ord("q"):
-				cv2.destroyAllWindows()
-				vid_cap.release()
-				break
+			# cv2.namedWindow("frame", cv2.WINDOW_NORMAL)
+			# cv2.setWindowProperty(
+			# 	"frame", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN
+			# )
+			# cv2.imshow("frame", imc)
+			# if cv2.waitKey(1) & 0xFF == ord("q"):
+			# 	cv2.destroyAllWindows()
+			# 	vid_cap.release()
+			# 	break
 				
 			if opt.use_database:
 				frame_time = vid_cap.get(cv2.CAP_PROP_POS_MSEC) / 1000
@@ -132,18 +143,17 @@ def main(opt):
 					influx.insertObjects(
 						opt.input_name, opt.input_video, veh_results, frame_time
 					)
-     
+	 
 			if opt.produce_files.enable:
 				# write JSON
 				frame_time = vid_cap.get(cv2.CAP_PROP_POS_MSEC) / 1000
 				if person_results:
-					count_label = person_detector.count_label(person_results, person_index)
+					count_label = person_detector.count_label(person_results, PERSON_LABEL)
 					json_output.add_humans(opt.input_name, count_label, frame_time)
 				if veh_results:
-					for label in veh_classes:
+					for label in VEHICLES_LABELS:
 						count_label = veh_detector.count_label(veh_results, label)
-						label_name = veh_detector.cls2label(label)
-						json_output.add_vehicles(opt.input_name, opt.input_video, label_name, count_label, frame_time)
+						json_output.add_vehicles(opt.input_name, opt.input_video, label, count_label, frame_time)
 
 			frame_id += 1
 			pbar.update(1)
@@ -190,13 +200,13 @@ def main(opt):
 			hstack = np.concatenate((pred_err_img, img, recon_err_img), axis=1)
 			# concatenate image vertically
 			# vstack = np.concatenate((pred_err_img, img, recon_err_img), axis=0)
-			cv2.namedWindow('anomaly', cv2.WINDOW_NORMAL)
-			cv2.setWindowProperty('anomaly', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-			cv2.imshow('anomaly', hstack)
-			if cv2.waitKey(1) & 0xFF == ord("q"):
-				cv2.destroyAllWindows()
-				vid_cap.release()
-				break
+			# cv2.namedWindow('anomaly', cv2.WINDOW_NORMAL)
+			# cv2.setWindowProperty('anomaly', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+			# cv2.imshow('anomaly', hstack)
+			# if cv2.waitKey(1) & 0xFF == ord("q"):
+			# 	cv2.destroyAllWindows()
+			# 	vid_cap.release()
+			# 	break
 
 		################################################ video anomaly detection (trajectory) ################################################
 		if opt.traj_anomaly_detection.enabled:
