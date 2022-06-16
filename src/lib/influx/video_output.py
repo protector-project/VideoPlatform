@@ -9,33 +9,49 @@ class VideoOutput:
     This class is responsable for outputing the frames into video files
     '''
     
-    def __init__(self, input_video):
+    def __init__(self, opt):
         
         # get video info
-        base_file_name = os.path.basename(input_video)
-        info = cv2.VideoCapture(input_video)
-        x_shape = int(info.get(cv2.CAP_PROP_FRAME_WIDTH))
-        y_shape = int(info.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        # four_cc = cv2.VideoWriter_fourcc(*"MJPG")
-        four_cc = cv2.VideoWriter_fourcc(*'mp4v')
+        base_file_name = os.path.basename(opt.input_video)
+        info = cv2.VideoCapture(opt.input_video)
+        w = int(info.get(cv2.CAP_PROP_FRAME_WIDTH))
+        h = int(info.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        fps = info.get(cv2.CAP_PROP_FPS)
+        # fourcc = cv2.VideoWriter_fourcc(*"MJPG")
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        self.video_writers = []
+        
+        original_out = Path(base_file_name).stem + "_original.mp4"
+        self.original_writer = cv2.VideoWriter("out/{}".format(original_out), fourcc, fps, (w, h))
+        self.video_writers.append(self.original_writer)
         
         # create video outputs
-        original_out = Path(base_file_name).stem + "_original.mp4"
-        tracking_out = Path(base_file_name).stem + "_tracking.mp4"
-        objects_out = Path(base_file_name).stem + "_objects.mp4"
-        anomaly_out = Path(base_file_name).stem + "_anomaly_score.mp4"
-        pred_err_out = Path(base_file_name).stem + "_pred_err.mp4"
-        recon_err_out = Path(base_file_name).stem + "_recon_err.mp4"
+        if opt.person_detection.enabled or opt.veh_detection.enabled:
+            objects_out = Path(base_file_name).stem + "_objects.mp4"
+            self.objects_writer = cv2.VideoWriter("out/{}".format(objects_out), fourcc, fps, (w, h))
+            self.video_writers.append(self.objects_writer)
+            
+        if opt.tracking.enabled:
+            tracking_out = Path(base_file_name).stem + "_tracking.mp4"
+            self.tracking_writer = cv2.VideoWriter("out/{}".format(tracking_out), fourcc, fps, (w, h))
+            self.video_writers.append(self.tracking_writer)
+            
+        if opt.img_anomaly_detection.enabled:
+            anomaly_out = Path(base_file_name).stem + "_anomaly_score.mp4"
+            pred_err_out = Path(base_file_name).stem + "_pred_err.mp4"
+            recon_err_out = Path(base_file_name).stem + "_recon_err.mp4"
+            self.anomaly_writer = cv2.VideoWriter("out/{}".format(anomaly_out), fourcc, fps, (w, h))    
+            self.pred_err_writer = cv2.VideoWriter("out/{}".format(pred_err_out), fourcc, fps, (w, h))
+            self.recon_err_writer = cv2.VideoWriter("out/{}".format(recon_err_out), fourcc, fps, (w, h))
+            self.video_writers.append(self.anomaly_writer)
+            self.video_writers.append(self.pred_err_writer)
+            self.video_writers.append(self.recon_err_writer)
+            
         
-        self.original_writer = cv2.VideoWriter("out/{}".format(original_out), four_cc, 12.5, (x_shape, y_shape))
-        self.tracking_writer = cv2.VideoWriter("out/{}".format(tracking_out), four_cc, 12.5, (x_shape, y_shape))
-        self.objects_writer = cv2.VideoWriter("out/{}".format(objects_out), four_cc, 12.5, (x_shape, y_shape))
-        self.anomaly_writer = cv2.VideoWriter("out/{}".format(anomaly_out), four_cc, 12.5, (x_shape, y_shape))
-        self.pred_err_writer = cv2.VideoWriter("out/{}".format(pred_err_out), four_cc, 12.5, (x_shape, y_shape))
-        self.recon_err_writer = cv2.VideoWriter("out/{}".format(recon_err_out), four_cc, 12.5, (x_shape, y_shape))
+    def write_original(self, original_frame):
+         self.original_writer.write(original_frame)
         
-    def write_objects(self, original_frame, object_frame):
-        self.original_writer.write(original_frame)
+    def write_objects(self, object_frame):
         self.objects_writer.write(object_frame)
         
     def write_tracking(self, tracking_frame):
@@ -47,9 +63,5 @@ class VideoOutput:
         self.recon_err_writer.write(recon_err_frame)
         
     def release_all(self):
-        self.original_writer.release()
-        self.tracking_writer.release()
-        self.objects_writer.release()
-        self.anomaly_writer.release()
-        self.pred_err_writer.release()
-        self.recon_err_writer.release()
+        for video_writer in self.video_writers:
+            video_writer.release()
