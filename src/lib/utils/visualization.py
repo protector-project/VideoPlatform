@@ -4,7 +4,8 @@ Plotting utils
 
 import matplotlib
 import matplotlib.pyplot as plt
-matplotlib.use('TkAgg')
+# matplotlib.use('TkAgg')
+matplotlib.use('Agg')
 import numpy as np
 import cv2
 import skimage.io
