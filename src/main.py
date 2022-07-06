@@ -4,6 +4,8 @@ from __future__ import print_function
 import enum
 from pathlib import Path
 
+from pyrsistent import optional
+
 import numpy as np
 
 import _init_paths
@@ -74,7 +76,7 @@ def main(opt):
 	if opt.produce_files.enable:
 		video_output = VideoOutput(opt)
 		try:
-			json_output = InfluxJson(opt.input_video)
+			json_output = InfluxJson(opt)
 		except ValueError:
 			print(f"filename {opt.input_video} not correctly formatted")
 			exit()

@@ -10,25 +10,29 @@ class InfluxJson:
     the objects detect to insert into InfluxDB
     '''
     
-    def __init__(self, input_video):
+    def __init__(self, opt):
         # get video info
-        if "mt" in input_video:
-            base_file_name = os.path.basename(input_video)
+        if "mt" in opt.input_video:
+            base_file_name = os.path.basename(opt.input_video)
+            base_file_name = os.path.splitext(base_file_name)[0]
             time_from_the_name = base_file_name.split("-")[-3]
             self.start_time_video = datetime.datetime.strptime(time_from_the_name, "%Y%m%dT%H%M%S")
-        elif "ei" in input_video:
-            base_file_name = os.path.basename(input_video)
-            time_from_the_name = os.path.splitext(base_file_name)[0]
-            time_from_the_name = time_from_the_name.replace("_", "")
+        elif "ei" in opt.input_video:
+            base_file_name = os.path.basename(opt.input_video)
+            base_file_name = os.path.splitext(base_file_name)[0]
+            time_from_the_name = base_file_name.replace("_", "")
             self.start_time_video = datetime.datetime.strptime(time_from_the_name, "%d.%m.%Y г. %H%M%S (%Z%z)")
-        elif "pza" in input_video:
-            raise NotImplementedError
+        elif "pza" in opt.input_video:
+            base_file_name = os.path.basename(opt.input_video)
+            base_file_name = os.path.splitext(base_file_name)[0]
+            time_from_the_name = base_file_name.split("_")[1]
+            self.start_time_video = datetime.datetime.strptime(time_from_the_name, "%Y%m%d%H%M%S")
         else:
             raise ValueError
         
         # create outfile
         outputfile_name = base_file_name + "_influx.json"
-        self.outputfile = open("out/{}".format(outputfile_name), "w")
+        self.outputfile = open(os.path.join(opt.output_root, outputfile_name), "w")
         
     
     def add_anomaly(self, camera_name, value, clip_name, timestamp):

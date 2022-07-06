@@ -85,9 +85,10 @@ class opts(object):
             2 if len(opt.veh_detection.imgsz) == 1 else 1
         )  # expand
 
-        opt.root_dir = os.path.join(os.path.dirname(__file__), "..", "..")
-        opt.save_dir = os.path.join(opt.root_dir, "exp", opt.input_name)
-        print("The output will be saved to ", opt.save_dir)
+        # opt.root_dir = os.path.join(os.path.dirname(__file__), "..", "..")
+        # opt.save_dir = os.path.join(opt.root_dir, "exp", opt.input_name)
+        Path(opt.output_root).mkdir(parents=True, exist_ok=True)
+        print("The output will be saved to ", opt.output_root)
 
         return opt
 
