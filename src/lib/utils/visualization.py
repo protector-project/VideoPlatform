@@ -27,12 +27,13 @@ def plot_boxes(results, im0, names, color=(128, 128, 128), txt_color=(255, 255, 
 	:return: Frame with bounding boxes and labels ploted on it.
 	"""
 	h, w = im0.shape[:2]
-	for label, *xyxy, conf in results:
+	for *xyxy, conf, cls in results:
 		# xyxy = xywh2xyxy(torch.tensor(xywh).view(1, 4))
 		p1, p2 = (int(xyxy[0]), int(xyxy[1])), (int(xyxy[2]), int(xyxy[3]))
-		color = get_color(names.index(label))
+		color = get_color(int(cls))
 		cv2.rectangle(im0, p1, p2, color=color, thickness=lw, lineType=cv2.LINE_AA)
 		tf = max(lw - 1, 1)  # font thickness
+		label = names[int(cls)]
 		w, h = cv2.getTextSize(label, 0, fontScale=lw / 3, thickness=tf)[
 			0
 		]  # text width, height
@@ -122,12 +123,9 @@ def plot_norm_err(im0, norm_err, max_val, resize_width, resize_height):
 	return im
 
 
-def plot_tracking(image, tlwhs, obj_ids, scores=None, frame_id=0, fps=0.0, ids2=None):
+def plot_tracking(image, outputs, frame_id=0, fps=0.0, ids2=None):
 	im = np.ascontiguousarray(np.copy(image))
 	im_h, im_w = im.shape[:2]
-
-	top_view = np.zeros([im_w, im_w, 3], dtype=np.uint8) + 255
-
 	text_scale = max(1, image.shape[1] / 1600.0)
 	text_thickness = 2
 	line_thickness = max(1, int(image.shape[1] / 500.0))
@@ -135,7 +133,7 @@ def plot_tracking(image, tlwhs, obj_ids, scores=None, frame_id=0, fps=0.0, ids2=
 	radius = max(5, int(im_w / 140.0))
 	cv2.putText(
 		im,
-		"frame: %d num: %d" % (frame_id, len(tlwhs)),
+		"frame: %d num: %d" % (frame_id, len(outputs)),
 		(0, int(30 * text_scale)),
 		cv2.FONT_HERSHEY_SIMPLEX,
 		text_scale,
@@ -143,15 +141,18 @@ def plot_tracking(image, tlwhs, obj_ids, scores=None, frame_id=0, fps=0.0, ids2=
 		thickness=2,
 	)
 
-	for i, tlwh in enumerate(tlwhs):
-		x1, y1, w, h = tlwh
-		intbox = tuple(map(int, (x1, y1, x1 + w, y1 + h)))
-		obj_id = int(obj_ids[i])
-		id_text = "{}".format(int(obj_id))
-		if ids2 is not None:
-			id_text = id_text + ", {}".format(int(ids2[i]))
-		_line_thickness = 1 if obj_id <= 0 else line_thickness
-		color = get_color(abs(obj_id))
+	for j, output in enumerate(outputs):
+		bboxes = output[0:4]
+		id = output[4]
+		cls = output[5]
+
+		bbox_left = output[0]
+		bbox_top = output[1]
+		bbox_right = output[2]
+		bbox_bottom = output[3]
+		intbox = tuple(map(int, (bbox_left, bbox_top, bbox_right, bbox_bottom)))
+		id_text = "{}".format(int(id))
+		color = get_color(abs(id))
 		cv2.rectangle(
 			im, intbox[0:2], intbox[2:4], color=color, thickness=line_thickness
 		)
@@ -165,6 +166,51 @@ def plot_tracking(image, tlwhs, obj_ids, scores=None, frame_id=0, fps=0.0, ids2=
 			thickness=text_thickness,
 		)
 	return im
+
+
+# def plot_tracking(image, tlwhs, obj_ids, scores=None, frame_id=0, fps=0.0, ids2=None):
+# 	im = np.ascontiguousarray(np.copy(image))
+# 	im_h, im_w = im.shape[:2]
+
+# 	top_view = np.zeros([im_w, im_w, 3], dtype=np.uint8) + 255
+
+# 	text_scale = max(1, image.shape[1] / 1600.0)
+# 	text_thickness = 2
+# 	line_thickness = max(1, int(image.shape[1] / 500.0))
+
+# 	radius = max(5, int(im_w / 140.0))
+# 	cv2.putText(
+# 		im,
+# 		"frame: %d num: %d" % (frame_id, len(tlwhs)),
+# 		(0, int(30 * text_scale)),
+# 		cv2.FONT_HERSHEY_SIMPLEX,
+# 		text_scale,
+# 		(0, 0, 255),
+# 		thickness=2,
+# 	)
+
+# 	for i, tlwh in enumerate(tlwhs):
+# 		x1, y1, w, h = tlwh
+# 		intbox = tuple(map(int, (x1, y1, x1 + w, y1 + h)))
+# 		obj_id = int(obj_ids[i])
+# 		id_text = "{}".format(int(obj_id))
+# 		if ids2 is not None:
+# 			id_text = id_text + ", {}".format(int(ids2[i]))
+# 		_line_thickness = 1 if obj_id <= 0 else line_thickness
+# 		color = get_color(abs(obj_id))
+# 		cv2.rectangle(
+# 			im, intbox[0:2], intbox[2:4], color=color, thickness=line_thickness
+# 		)
+# 		cv2.putText(
+# 			im,
+# 			id_text,
+# 			(intbox[0], intbox[1] + 30),
+# 			cv2.FONT_HERSHEY_PLAIN,
+# 			text_scale,
+# 			(0, 0, 255),
+# 			thickness=text_thickness,
+# 		)
+# 	return im
 
 
 def plot_trajectories(gt_future, future_samples, observed, im, resize, with_bg=True, save_path=None):

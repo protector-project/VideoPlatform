@@ -9,12 +9,14 @@ from lib.models.yolo import get_yolo
 from lib.models.mpn import get_mpn
 from lib.models.networks.pose_dla_dcn import get_fairmot
 from lib.models.ynet import get_ynet
+from lib.models.strong_sort.strong_sort import get_strong_sort
 
 _model_factory = {
     "yolo": get_yolo,
     "mpn": get_mpn,
     "fairmot": get_fairmot,
     "ynet": get_ynet,
+    "strong_sort": get_strong_sort
 }
 
 

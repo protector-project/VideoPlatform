@@ -46,7 +46,7 @@ class opts(object):
         self.parser.add_argument(
             "--output_root",
             type=str,
-            default=get_project_root() / "/demos",
+            default=get_project_root() / "demos",
             help="expected output root path",
         )
 
@@ -78,11 +78,8 @@ class opts(object):
                 else:
                     opt_dict[key] = value
 
-        opt.person_detection.imgsz *= (
-            2 if len(opt.person_detection.imgsz) == 1 else 1
-        )  # expand
-        opt.veh_detection.imgsz *= (
-            2 if len(opt.veh_detection.imgsz) == 1 else 1
+        opt.object_detection.imgsz *= (
+            2 if len(opt.object_detection.imgsz) == 1 else 1
         )  # expand
 
         # opt.root_dir = os.path.join(os.path.dirname(__file__), "..", "..")
@@ -134,5 +131,5 @@ class opts(object):
         opt = self.parse(args)
         dataset = Struct(default_dataset_info)
         opt.dataset = dataset.dataset
-        opt.tracking = self.update_dataset_info_and_set_heads(opt.tracking, dataset)
+        # opt.tracking = self.update_dataset_info_and_set_heads(opt.tracking, dataset)
         return opt

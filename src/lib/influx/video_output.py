@@ -26,7 +26,8 @@ class VideoOutput:
         self.video_writers.append(self.original_writer)
         
         # create video outputs
-        if opt.person_detection.enabled or opt.veh_detection.enabled:
+        # if opt.person_detection.enabled or opt.veh_detection.enabled:
+        if opt.object_detection.enabled:
             objects_out = Path(base_file_name).stem + "_objects.avi"
             self.objects_writer = cv2.VideoWriter(os.path.join(opt.output_root, objects_out), fourcc, fps, (w, h))
             self.video_writers.append(self.objects_writer)

@@ -38,10 +38,10 @@ class InfluxClient:
         ]
         self.client.write_points(json_body)
 
-    def insertObjects(self, camera_name, clip_name, results, timestamp):
+    def insertObjects(self, camera_name, clip_name, detections, timestamp, names):
         json_body = []
-        label = [x[0] for x in results]
-        count_labels = {i: label.count(i) for i in label}
+        labels = [names[int(cls)] for *xywh, conf, cls in detections]
+        count_labels = {i: labels.count(i) for i in labels if i != "person"}
         for k, v in count_labels.items():
             json_body.append(
                 {

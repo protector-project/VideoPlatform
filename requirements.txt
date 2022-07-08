@@ -41,3 +41,22 @@ torchvision==0.10.0+cu111
 tqdm==4.62.3
 typing_extensions==4.0.1
 urllib3==1.26.8
+pyrsistent
+
+# deep_sort -----------------------------------
+
+easydict
+
+# torchreid
+
+Cython
+h5py
+six
+tb-nightly
+future
+yacs
+gdown
+flake8
+yapf
+isort==4.3.21
+imageio

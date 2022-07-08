@@ -53,8 +53,6 @@ class ObjectDetector(object):
         pred = self.model(im)[0]
         pred = self.post_process(pred, classes)
 
-        results = []
-
         # Process predictions
         for i, det in enumerate(pred):  # per image
             # gn = torch.tensor(im0_shape)[[1, 0, 1, 0]]  # normalization gain whwh
@@ -62,11 +60,7 @@ class ObjectDetector(object):
                 # Rescale boxes from img_size to im0 size
                 det[:, :4] = scale_coords(im.shape[2:], det[:, :4], im0.shape).round()
 
-                for *xyxy, conf, cls in reversed(det):
-                    # xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
-                    results.append((self.cls2label(cls), *xyxy, conf))  # label format
-
-        return results
+        return pred
 
     def cls2label(self, cls):
         """
@@ -87,6 +81,6 @@ class ObjectDetector(object):
         cls = self.model.names.index(label)  # integer class
         return cls
 
-    def count_label(self, results, t_label):
-        n = len([p_label == t_label for p_label, *xywh, conf in results])
+    def count_label(self, detections, t_label):
+        n = sum([int(p_cls) == self.label2cls(t_label) for *xywh, conf, p_cls in detections])
         return n

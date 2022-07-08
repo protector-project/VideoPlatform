@@ -27,43 +27,32 @@ from lib.influx.json_influx import InfluxJson
 from lib.influx.video_output import VideoOutput
 from lib.datasets.dataset import LoadImages
 from lib.opts import get_project_root, opts
-from lib.tracker.tracker import Tracker
+from lib.tracker.strong_sort_tracker import Tracker
+from lib.utils.general import xyxy2xywh
 from lib.utils.preprocessing import load_and_window_MT
 
 from lib.utils.torch_utils import select_device
 from lib.utils.visualization import plot_anomaly, plot_boxes, plot_pred_err, plot_norm_err, plot_tracking, plot_trajectories
 
 
-PERSON_LABEL = "person"
-VEHICLES_LABELS = ["bicycle", "car", "motorcycle", "bus", "truck"]
-OBJECTS_LABELS = ['pedestrian', 'people', 'bicycle', 'car', 'van', 'truck', 'tricycle', 'awning-tricycle', 'bus', 'motor']
+OBJECTS_LABELS = ['person', 'bicycle', 'car', 'van', 'truck', 'bus', 'motor']
 
 
 @torch.no_grad()
 def main(opt):
 	# Load models
 	device = select_device(opt.device)
-	names = []
+	# names = []
 	if opt.img_anomaly_detection.enabled:
 		anomaly_detector = AnomalyDetector(opt.img_anomaly_detection, device)
-	if opt.person_detection.enabled:
-		person_detector = ObjectDetector(
-			opt.person_detection, device
-		)
-		person_class = [person_detector.model.names.index(PERSON_LABEL)]
-		names += person_detector.model.names
-	if opt.veh_detection.enabled:
-		veh_detector = ObjectDetector(
-			opt.veh_detection, device
-		)
-		veh_classes = [veh_detector.model.names.index(veh) for veh in VEHICLES_LABELS]
-		names += veh_detector.model.names
+	if opt.object_detection.enabled:
+		object_detector = ObjectDetector(opt.object_detection, device)
+		names = object_detector.model.names
 	if opt.tracking.enabled:
 		tracker = Tracker(opt.tracking, device)
+		prev_frame = None
 	if opt.traj_anomaly_detection.enabled:
 		traj_anomaly_detector = TrajAnomalyDetector(opt.traj_anomaly_detection, device)
-
-	names = sorted(list(set(names)))
 
 	if opt.use_database:
 		influx = InfluxClient(
@@ -86,7 +75,7 @@ def main(opt):
 	dataset = LoadImages(opt.input_video)
 
 	frame_id = 0
-	person_results, veh_results, trajectories = [], [], []
+	trajectories = []
 	with tqdm(total=len(dataset)) as pbar:
 		# Run inference
 		for path, im0s, vid_cap, s in dataset:
@@ -95,10 +84,9 @@ def main(opt):
 			# Inference
 
 			################################################ video object detection ################################################
-			if opt.person_detection.enabled:
-				person_results = person_detector.process_frame(im0s, person_class)
-			if opt.veh_detection.enabled:
-				veh_results = veh_detector.process_frame(im0s, veh_classes)
+			if opt.object_detection.enabled:
+				detections = object_detector.process_frame(im0s)
+				detections = detections[0]
 
 			################################################ video anomaly detection (image) ################################################
 			if opt.img_anomaly_detection.enabled:
@@ -106,23 +94,27 @@ def main(opt):
 
 			################################################ video object tracking ################################################
 			if opt.tracking.enabled:
-				online_tlwhs, online_ids = tracker.process_frame(im0s)
+				# online_tlwhs, online_ids = tracker.process_frame(im0s)
+				# x1, y1, x2, y2, track_id, class_id, conf
+				outputs = tracker.process_frame(im0s, prev_frame, detections)
 				trajectories.extend(
 					[
-						(frame_id, track_id, *tlwh)
-						for track_id, tlwh in zip(online_ids, online_tlwhs)
+						(frame_id, track_id, *xyxy2xywh(np.array(xyxy).reshape(1, 4)).reshape(-1))
+						for *xyxy, track_id, class_id, conf in outputs
 					]
 				)
+				prev_frame = im0s
 
 			################################################ visualization (detection/tracking) ################################################
 			imc = im0s.copy()
 			video_output.write_original(imc)
-			if opt.person_detection.enabled:
-				imc = plot_boxes(person_results + veh_results, imc, names)
+			if opt.object_detection.enabled:
+				imc = plot_boxes(detections, imc, names)
 				if opt.produce_files.enable:
 					video_output.write_objects(imc)
 			if opt.tracking.enabled:
-				imc = plot_tracking(imc, online_tlwhs, online_ids, frame_id=frame_id)
+				# imc = plot_tracking(imc, online_tlwhs, online_ids, frame_id=frame_id)
+				imc = plot_tracking(imc, outputs, frame_id=frame_id)
 				if opt.produce_files.enable:
 					video_output.write_tracking(imc)
 			
@@ -138,24 +130,21 @@ def main(opt):
 				
 			if opt.use_database:
 				frame_time = vid_cap.get(cv2.CAP_PROP_POS_MSEC) / 1000
-				if person_results:
-					count_label = person_detector.count_label(person_results, "0")
-					influx.insertHumans(opt.input_name, count_label, frame_time)
-				if veh_results:
-					influx.insertObjects(
-						opt.input_name, opt.input_video, veh_results, frame_time
-					)
+				if detections is not None and len(detections):
+					person_count = object_detector.count_label(detections, 'person')
+					influx.insertHumans(opt.input_name, person_count, frame_time)
+					influx.insertObjects(opt.input_name, opt.input_video, detections, frame_time, names)
 	 
 			if opt.produce_files.enable:
 				# write JSON
 				frame_time = vid_cap.get(cv2.CAP_PROP_POS_MSEC) / 1000
-				if person_results:
-					count_label = person_detector.count_label(person_results, PERSON_LABEL)
-					json_output.add_humans(opt.input_name, count_label, frame_time)
-				if veh_results:
-					for label in VEHICLES_LABELS:
-						count_label = veh_detector.count_label(veh_results, label)
-						json_output.add_vehicles(opt.input_name, opt.input_video, label, count_label, frame_time)
+				if detections is not None and len(detections):
+					person_count = object_detector.count_label(detections, 'person')
+					json_output.add_humans(opt.input_name, person_count, frame_time)
+					for label in OBJECTS_LABELS:
+						if label != 'person':
+							label_count = object_detector.count_label(detections, label)
+							json_output.add_vehicles(opt.input_name, opt.input_video, label, label_count, frame_time)
 
 			frame_id += 1
 			pbar.update(1)
@@ -178,6 +167,19 @@ def main(opt):
 		obs_len = opt.traj_anomaly_detection.obs_len
 		pred_len = opt.traj_anomaly_detection.pred_len
 
+	# base = os.path.basename(opt.input_video)
+	# filename = f"output/{os.path.splitext(base)[0]}-vstack6.mp4"
+	# hvideo = cv2.VideoWriter(filename, cv2.VideoWriter_fourcc(*'mp4v'), 12.5, (1600*3,1200))
+	# vvideo = cv2.VideoWriter(filename, cv2.VideoWriter_fourcc(*'mp4v'), 12.5, (1600,1200*3))
+	# h0, w0 = 1200, 1600
+	# h, w = 256, 256
+	# r = h / float(h0)
+	# # r = w / float(w0)
+	# dim = (int(w0 * r), h)
+	# # dim = (w, int(h0 * r))
+	# video = cv2.VideoWriter(filename, cv2.VideoWriter_fourcc(*'mp4v'), 12.5, (256*2+dim[0],256))
+	# # video = cv2.VideoWriter(filename, cv2.VideoWriter_fourcc(*'mp4v'), 12.5, (256,(256*2+dim[1])))
+
 	dataset = LoadImages(opt.input_video)
 	frame_id = 0
 	for i, (path, im0s, vid_cap, s) in enumerate(dataset):
@@ -189,6 +191,7 @@ def main(opt):
 			pred_err = anomaly_detector.pred_err_buffer[frame_id].data.cpu().numpy()
 			norm_err = anomaly_detector.norm_err_buffer[frame_id].data.cpu().numpy()
 			img = plot_anomaly(im0s, anomaly_score, frame_id=frame_id)
+			# img = cv2.resize(img, dim)
 			pred_err_img = plot_pred_err(im0s, pred_err, max_pred_err, opt.img_anomaly_detection.w, opt.img_anomaly_detection.h)
 			recon_err_img = plot_norm_err(im0s, norm_err, max_norm_err, opt.img_anomaly_detection.w, opt.img_anomaly_detection.h)
    
@@ -197,9 +200,13 @@ def main(opt):
 				json_output.add_anomaly(opt.input_name, anomaly_score, opt.input_video, frame_time)
 				video_output.write_anomaly(img, pred_err_img, recon_err_img)
 
+			# cv2.imwrite(f"output/pred_err_{frame_id:04d}.png", pred_err_img)
+			# cv2.imwrite(f"output/recon_err_{frame_id:04d}.png", recon_err_img)
+
 			################################################ visualization (anomaly) ################################################
 			# concatenate image horizontally
-			hstack = np.concatenate((pred_err_img, img, recon_err_img), axis=1)
+			# hstack = np.concatenate((pred_err_img, img, recon_err_img), axis=1)
+			# video.write(hstack)
 			# concatenate image vertically
 			# vstack = np.concatenate((pred_err_img, img, recon_err_img), axis=0)
 			# cv2.namedWindow('anomaly', cv2.WINDOW_NORMAL)
