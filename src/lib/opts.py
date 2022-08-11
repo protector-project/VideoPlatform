@@ -6,6 +6,7 @@ import argparse
 import os
 import yaml
 from pathlib import Path
+from dotmap import DotMap
 
 
 def get_project_root() -> Path:
@@ -65,18 +66,27 @@ class opts(object):
             opt = self.parser.parse_args(args)
 
         # Load config file and add to command-line-arguments
+        # with open(opt.config_file) as file:
+        #     params = yaml.load(file, Loader=yaml.FullLoader)
+        #     delattr(opt, 'config_file')
+        #     opt_dict = opt.__dict__
+        #     for key, value in params.items():
+        #         if isinstance(value, dict):
+        #             opt_dict[key] = Struct(value)
+        #         elif isinstance(value, list):
+        #             for v in value:
+        #                 opt_dict[key].extend(v)
+        #         else:
+        #             opt_dict[key] = value
+
+        # Load config file and add to command-line-arguments
         with open(opt.config_file) as file:
             params = yaml.load(file, Loader=yaml.FullLoader)
             delattr(opt, 'config_file')
-            opt_dict = opt.__dict__
-            for key, value in params.items():
-                if isinstance(value, dict):
-                    opt_dict[key] = Struct(value)
-                elif isinstance(value, list):
-                    for v in value:
-                        opt_dict[key].extend(v)
-                else:
-                    opt_dict[key] = value
+        opt_dict = opt.__dict__
+        opt = DotMap(params)
+        for key, value in opt_dict.items():
+            opt[key] = value
 
         opt.object_detection.imgsz *= (
             2 if len(opt.object_detection.imgsz) == 1 else 1

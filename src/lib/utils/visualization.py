@@ -10,6 +10,7 @@ import numpy as np
 import cv2
 import skimage.io
 from skimage.transform import rescale
+from pytorch_grad_cam.utils.image import show_cam_on_image
 
 
 def get_color(idx):
@@ -233,3 +234,45 @@ def plot_trajectories(gt_future, future_samples, observed, im, resize, with_bg=T
 	plt.axis('off')
 	plt.show()
 	plt.savefig("test.png", bbox_inches='tight')
+
+
+def plot_actions(im0, pred_indices, pred_values, classes, f_idx):
+	imc = np.ascontiguousarray(np.copy(im0))
+	position = (0, 30)
+	pred_values_list = pred_values[f_idx]
+	pred_indices_list = pred_indices[f_idx]
+	text = [f"{classes[idx][1]}: {score:.6f}" for idx, score in zip(pred_indices_list, pred_values_list)]
+	text = "\n".join(text)
+	font_scale = 0.8
+	thickness=2
+	font = cv2.FONT_HERSHEY_SIMPLEX
+	line_type = cv2.LINE_AA
+	
+	text_size, _ = cv2.getTextSize(text, font, font_scale, thickness)
+	line_height = text_size[1] + 5
+	x, y0 = position
+	
+	for i, line in enumerate(text.split("\n")):
+		y = y0 + i * line_height
+		color = get_color(int(pred_indices_list[i]))
+		cv2.putText(
+			imc,
+			line,
+			(x, y),
+			font,
+			font_scale,
+			color,
+			thickness,
+			line_type
+		)
+		
+	return imc
+
+def plot_gradcam(im0, gradcam_images, f_idx):
+	grayscale_cam = gradcam_images[f_idx]
+	imc = np.ascontiguousarray(np.copy(im0))
+	imc = cv2.resize(imc, (224, 224))
+	imc = np.float32(imc) / 255
+	cam_image = show_cam_on_image(imc, grayscale_cam)
+
+	return cam_image

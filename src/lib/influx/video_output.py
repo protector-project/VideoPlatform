@@ -4,9 +4,8 @@ import datetime
 import os
 
 class VideoOutput:
-    
     '''
-    This class is responsable for outputing the frames into video files
+    This class is responsible for outputing the frames into video files
     '''
     
     def __init__(self, opt):
@@ -47,8 +46,15 @@ class VideoOutput:
             self.video_writers.append(self.anomaly_writer)
             self.video_writers.append(self.pred_err_writer)
             self.video_writers.append(self.recon_err_writer)
-            
-        
+
+        if opt.action_anomaly_detection.enabled:
+            actions_out = Path(base_file_name).stem + "_actions.avi"
+            gradcam_out = Path(base_file_name).stem + "_gradcam.avi"
+            self.actions_writer = cv2.VideoWriter(os.path.join(opt.output_root, actions_out), fourcc, fps, (w, h))
+            self.gradcam_writer = cv2.VideoWriter(os.path.join(opt.output_root, gradcam_out), fourcc, fps, (224, 224))
+            self.video_writers.append(self.actions_writer)
+            self.video_writers.append(self.gradcam_writer)
+
     def write_original(self, original_frame):
          self.original_writer.write(original_frame)
         
@@ -62,6 +68,10 @@ class VideoOutput:
         self.anomaly_writer.write(anomaly_score_frame)
         self.pred_err_writer.write(pred_err_frame)
         self.recon_err_writer.write(recon_err_frame)
+
+    def write_actions(self, actions_frame, cam_image):
+        self.actions_writer.write(actions_frame)
+        self.gradcam_writer.write(cam_image)
         
     def release_all(self):
         for video_writer in self.video_writers:

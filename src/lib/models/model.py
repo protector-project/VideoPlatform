@@ -10,13 +10,15 @@ from lib.models.mpn import get_mpn
 from lib.models.networks.pose_dla_dcn import get_fairmot
 from lib.models.ynet import get_ynet
 from lib.models.strong_sort.strong_sort import get_strong_sort
+from lib.models.clip.model import get_action_clip
 
 _model_factory = {
     "yolo": get_yolo,
     "mpn": get_mpn,
     "fairmot": get_fairmot,
     "ynet": get_ynet,
-    "strong_sort": get_strong_sort
+    "strong_sort": get_strong_sort,
+    "action_clip": get_action_clip
 }
 
 
@@ -31,21 +33,27 @@ def load_model(model, opt, optimizer=None, resume=False, lr=None, lr_step=None):
     checkpoint = torch.load(opt.model_path, map_location=lambda storage, loc: storage)
     print("loaded {}, epoch {}".format(opt.model_path, checkpoint.get("epoch", -1)))
     if opt.arch == "yolo":
-        state_dict_ = checkpoint.get("model").float().state_dict()
+        # state_dict_ = checkpoint.get("model").float().state_dict()
+        state_dict = checkpoint.get("model").float().state_dict()
     elif opt.arch == "mpn" or opt.arch == "fairmot":
-        state_dict_ = checkpoint.get("state_dict")
+        # state_dict_ = checkpoint.get("state_dict")
+        state_dict = checkpoint.get("state_dict")
     elif opt.arch == "ynet":
-        state_dict_ = checkpoint
+        # state_dict_ = checkpoint
+        state_dict = checkpoint
     else:
         raise ValueError("Invalid model architecture, expected one of {yolo, fairmot, mpn, ynet}")
-    state_dict = {}
+    # state_dict = {}
 
     # convert data_parallel to model
-    for k in state_dict_:
-        if k.startswith("module") and not k.startswith("module_list"):
-            state_dict[k[7:]] = state_dict_[k]
-        else:
-            state_dict[k] = state_dict_[k]
+    # for k in state_dict_:
+    #     if k.startswith("module") and not k.startswith("module_list"):
+    #         state_dict[k[7:]] = state_dict_[k]
+    #     else:
+    #         state_dict[k] = state_dict_[k]
+    torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(
+        state_dict, "module."
+    )
     model_state_dict = model.state_dict()
 
     # check loaded parameters and created model parameters

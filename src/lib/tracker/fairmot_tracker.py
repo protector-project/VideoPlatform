@@ -11,7 +11,7 @@ from models.utils import _tranpose_and_gather_feat
 from tracking_utils.kalman_filter import KalmanFilter
 from lib.utils.postprocessing import ctdet_post_process
 
-from tracker import matching
+from lib.tracker import matching
 
 from .basetrack import BaseTrack, TrackState
 
