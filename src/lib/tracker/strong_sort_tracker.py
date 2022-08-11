@@ -24,6 +24,8 @@ class Tracker(object):
         :param frame: input frame in numpy/list/tuple format.
         :return: Labels and Coordinates of objects detected by model in the frame.
         """
+        outputs = []
+        
         if self.opt.ecc:  # camera motion compensation
             self.model.tracker.camera_update(prev_frame, im0)
 
