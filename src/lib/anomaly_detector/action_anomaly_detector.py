@@ -129,24 +129,24 @@ class ActionAnomalyDetector:
             text_features = text_features.mean(dim=1, keepdim=False)  # [4, 512]
             most_sim_idx = indices_1.item()
             text_features = torch.unsqueeze(self.text_features[most_sim_idx], dim=0)  # [1, 512]
-            text_targets = [SimilarityToTextFeaturesTarget(self.text_features)] 
+            text_targets = [SimilarityToTextFeaturesTarget(text_features)] 
             use_cuda = torch.cuda.is_available()
             target_layers = [self.action_clip.model.visual.transformer.resblocks[-1].ln_1]
-            # cam = GradCAM(
-            #     model=self.action_clip,
-            #     target_layers=target_layers,
-            #     use_cuda=use_cuda,
-            #     reshape_transform=reshape_transform,
-            # )
-            # grayscale_cam = cam(
-            #     input_tensor=image,
-            #     targets=text_targets,
-            #     eigen_smooth=False,
-            #     aug_smooth=False,
-            # )
-            # grayscale_cam = grayscale_cam[0, :]
-            mu, sigma = 0, 0.1 # mean and standard deviation
-            grayscale_cam = np.random.normal(mu, sigma, size=(224, 224))
+            cam = GradCAM(
+                model=self.action_clip,
+                target_layers=target_layers,
+                use_cuda=use_cuda,
+                reshape_transform=reshape_transform,
+            )
+            grayscale_cam = cam(
+                input_tensor=image,
+                targets=text_targets,
+                eigen_smooth=False,
+                aug_smooth=False,
+            )
+            grayscale_cam = grayscale_cam[0, :]
+            # mu, sigma = 0, 0.1 # mean and standard deviation
+            # grayscale_cam = np.random.normal(mu, sigma, size=(224, 224))
             self.gradcam_images.extend([grayscale_cam] * len(self.buffer))
             ###
 

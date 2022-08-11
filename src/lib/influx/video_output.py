@@ -51,7 +51,8 @@ class VideoOutput:
             actions_out = Path(base_file_name).stem + "_actions.avi"
             gradcam_out = Path(base_file_name).stem + "_gradcam.avi"
             self.actions_writer = cv2.VideoWriter(os.path.join(opt.output_root, actions_out), fourcc, fps, (w, h))
-            self.gradcam_writer = cv2.VideoWriter(os.path.join(opt.output_root, gradcam_out), fourcc, fps, (224, 224))
+            input_size = opt.action_anomaly_detection.data.input_size
+            self.gradcam_writer = cv2.VideoWriter(os.path.join(opt.output_root, gradcam_out), fourcc, fps, (input_size, input_size))
             self.video_writers.append(self.actions_writer)
             self.video_writers.append(self.gradcam_writer)
 
