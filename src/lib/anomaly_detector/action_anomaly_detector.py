@@ -132,6 +132,7 @@ class ActionAnomalyDetector:
             text_targets = [SimilarityToTextFeaturesTarget(text_features)] 
             use_cuda = torch.cuda.is_available()
             target_layers = [self.action_clip.model.visual.transformer.resblocks[-1].ln_1]
+            # target_layers = [self.action_clip.fusion_model.transformer.resblocks[-1].ln_1]
             cam = GradCAM(
                 model=self.action_clip,
                 target_layers=target_layers,
@@ -144,10 +145,11 @@ class ActionAnomalyDetector:
                 eigen_smooth=False,
                 aug_smooth=False,
             )
-            grayscale_cam = grayscale_cam[0, :]
+            # grayscale_cam = grayscale_cam[0, :]
             # mu, sigma = 0, 0.1 # mean and standard deviation
             # grayscale_cam = np.random.normal(mu, sigma, size=(224, 224))
-            self.gradcam_images.extend([grayscale_cam] * len(self.buffer))
+            # self.gradcam_images.extend([grayscale_cam] * len(self.buffer))
+            self.gradcam_images.extend([grayscale_cam[i] for i in range(grayscale_cam.shape[0])])
             ###
 
             self.buffer = list()
