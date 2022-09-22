@@ -13,11 +13,25 @@ from skimage.transform import rescale
 from pytorch_grad_cam.utils.image import show_cam_on_image
 
 
-def get_color(idx):
-	idx = idx * 3
-	color = ((37 * idx) % 255, (17 * idx) % 255, (29 * idx) % 255)
+class Colors:
+    # Ultralytics color palette https://ultralytics.com/
+    def __init__(self):
+        # hex = matplotlib.colors.TABLEAU_COLORS.values()
+        hexs = ('FF3838', 'FF9D97', 'FF701F', 'FFB21D', 'CFD231', '48F90A', '92CC17', '3DDB86', '1A9334', '00D4BB',
+                '2C99A8', '00C2FF', '344593', '6473FF', '0018EC', '8438FF', '520085', 'CB38FF', 'FF95C8', 'FF37C7')
+        self.palette = [self.hex2rgb(f'#{c}') for c in hexs]
+        self.n = len(self.palette)
 
-	return color
+    def __call__(self, i, bgr=False):
+        c = self.palette[int(i) % self.n]
+        return (c[2], c[1], c[0]) if bgr else c
+
+    @staticmethod
+    def hex2rgb(h):  # rgb order (PIL)
+        return tuple(int(h[1 + i:1 + i + 2], 16) for i in (0, 2, 4))
+
+
+colors = Colors()  # create instance for 'from utils.plots import colors'
 
 
 def plot_boxes(results, im0, names, color=(128, 128, 128), txt_color=(255, 255, 255), lw=3):
@@ -27,12 +41,14 @@ def plot_boxes(results, im0, names, color=(128, 128, 128), txt_color=(255, 255, 
 	:param frame: Frame which has been scored.
 	:return: Frame with bounding boxes and labels ploted on it.
 	"""
-	h, w = im0.shape[:2]
+	im = np.ascontiguousarray(np.copy(im0))
+	h, w = im.shape[:2]
 	for *xyxy, conf, cls in results:
 		# xyxy = xywh2xyxy(torch.tensor(xywh).view(1, 4))
 		p1, p2 = (int(xyxy[0]), int(xyxy[1])), (int(xyxy[2]), int(xyxy[3]))
-		color = get_color(int(cls))
-		cv2.rectangle(im0, p1, p2, color=color, thickness=lw, lineType=cv2.LINE_AA)
+		c = int(cls)  # integer class
+		color = colors(c, True)
+		cv2.rectangle(im, p1, p2, color=color, thickness=lw, lineType=cv2.LINE_AA)
 		tf = max(lw - 1, 1)  # font thickness
 		label = names[int(cls)]
 		w, h = cv2.getTextSize(label, 0, fontScale=lw / 3, thickness=tf)[
@@ -40,9 +56,9 @@ def plot_boxes(results, im0, names, color=(128, 128, 128), txt_color=(255, 255, 
 		]  # text width, height
 		outside = p1[1] - h - 3 >= 0  # label fits outside box
 		p2 = p1[0] + w, p1[1] - h - 3 if outside else p1[1] + h + 3
-		cv2.rectangle(im0, p1, p2, color, -1, cv2.LINE_AA)  # filled
+		cv2.rectangle(im, p1, p2, color, -1, cv2.LINE_AA)  # filled
 		cv2.putText(
-			im0,
+			im,
 			label,
 			(p1[0], p1[1] - 2 if outside else p1[1] + h + 2),
 			0,
@@ -52,7 +68,7 @@ def plot_boxes(results, im0, names, color=(128, 128, 128), txt_color=(255, 255, 
 			lineType=cv2.LINE_AA,
 		)
 
-	return im0
+	return im
 
 
 def plot_anomaly(
@@ -153,7 +169,8 @@ def plot_tracking(image, outputs, frame_id=0, fps=0.0, ids2=None):
 		bbox_bottom = output[3]
 		intbox = tuple(map(int, (bbox_left, bbox_top, bbox_right, bbox_bottom)))
 		id_text = "{}".format(int(id))
-		color = get_color(abs(id))
+		c = abs(id)  # integer class
+		color = colors(c, True)
 		cv2.rectangle(
 			im, intbox[0:2], intbox[2:4], color=color, thickness=line_thickness
 		)
@@ -248,13 +265,19 @@ def plot_actions(im0, pred_indices, pred_values, classes, f_idx):
 	font = cv2.FONT_HERSHEY_SIMPLEX
 	line_type = cv2.LINE_AA
 	
+	text_color_bg = (255, 255, 255)
 	text_size, _ = cv2.getTextSize(text, font, font_scale, thickness)
-	line_height = text_size[1] + 5
+	text_w, text_h = text_size
+	line_height = text_h + 5
 	x, y0 = position
+	rect_w = max(cv2.getTextSize(x, font, font_scale, thickness)[0][0] for x in text.split("\n"))
+	rect_h = line_height * len(text.split("\n")) - 5
+	cv2.rectangle(imc, (x, y0 - line_height), (x + rect_w, y0 + rect_h), text_color_bg, -1)
 	
 	for i, line in enumerate(text.split("\n")):
 		y = y0 + i * line_height
-		color = get_color(int(pred_indices_list[i]))
+		c = int(pred_indices_list[i])  # integer class
+		color = colors(c, True)
 		cv2.putText(
 			imc,
 			line,
@@ -268,8 +291,25 @@ def plot_actions(im0, pred_indices, pred_values, classes, f_idx):
 		
 	return imc
 
-def plot_gradcam(im0, gradcam_images, f_idx):
+def plot_gradcam(im0, gradcam_images, frame_dets, f_idx):
 	grayscale_cam = gradcam_images[f_idx]
+ 
+	if len(frame_dets):
+		mask = np.zeros(im0.shape[:2], dtype=np.uint8)
+		for *xyxy, _, _ in frame_dets:
+			p1, p2 = (int(xyxy[0]), int(xyxy[1])), (int(xyxy[2]), int(xyxy[3]))
+			cv2.rectangle(mask, p1, p2, (255,255,255), -1)
+	else:
+		mask = np.ones(im0.shape[:2], dtype=np.uint8) * 255
+   
+	mask = np.ascontiguousarray(np.copy(mask))
+	mask = cv2.resize(mask, (224, 224))
+	mask = np.float32(mask) / 255
+   
+   	# Mask input image with binary mask
+	# grayscale_cam = cv2.bitwise_and(grayscale_cam, mask)
+	grayscale_cam *= mask
+  
 	imc = np.ascontiguousarray(np.copy(im0))
 	imc = cv2.resize(imc, (224, 224))
 	imc = np.float32(imc) / 255
