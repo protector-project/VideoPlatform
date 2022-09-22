@@ -60,3 +60,9 @@ flake8
 yapf
 isort==4.3.21
 imageio
+
+#  ActionCLIP
+RandAugment
+pprint
+dotmap
+csv
