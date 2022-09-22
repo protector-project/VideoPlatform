@@ -20,6 +20,7 @@ class ObjectDetector(object):
 
         self.stride = int(self.model.stride.max())
         self.imgsz = check_img_size(opt.imgsz, s=self.stride)  # check image size
+        self.augment = opt.augment
 
     def pre_process(self, im0):
         # Padded resize
@@ -50,7 +51,7 @@ class ObjectDetector(object):
         im = self.pre_process(im0.copy())
 
         # Inference
-        pred = self.model(im)[0]
+        pred = self.model(im, augment=self.augment)[0]
         pred = self.post_process(pred, classes)
 
         # Process predictions
