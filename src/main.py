@@ -78,19 +78,26 @@ def main(opt):
 	dataset = LoadImages(opt.input_video)
 
 	frame_id = 0
+	detections = []
 	trajectories = []
+	
 	with tqdm(total=len(dataset)) as pbar:
 		# Run inference
 		for path, im0s, vid_cap, s in dataset:
 			pbar.set_description("Processing %s" % path)
 
 			# Inference
-			detections = []
+			frame_dets = []
 
 			################################################ video object detection ################################################
+			opt.object_detection.enabled = True
 			if opt.object_detection.enabled:
-				detections = object_detector.process_frame(im0s)
-				detections = detections[0]
+				frame_dets = object_detector.process_frame(im0s)
+				frame_dets = frame_dets[0]
+    
+			detections.append(frame_dets)
+			frame_dets = []
+			opt.object_detection.enabled = False
 
 			################################################ video anomaly detection (image) ################################################
 			if opt.img_anomaly_detection.enabled:
@@ -100,7 +107,7 @@ def main(opt):
 			if opt.tracking.enabled:
 				# online_tlwhs, online_ids = tracker.process_frame(im0s)
 				# x1, y1, x2, y2, track_id, class_id, conf
-				outputs = tracker.process_frame(im0s, prev_frame, detections)
+				outputs = tracker.process_frame(im0s, prev_frame, frame_dets)
 				trajectories.extend(
 					[
 						(frame_id, track_id, *xyxy2xywh(np.array(xyxy).reshape(1, 4)).reshape(-1))
@@ -115,15 +122,14 @@ def main(opt):
 					action_anomaly_detector.process_frame(im0s)
 
 			################################################ visualization (detection/tracking) ################################################
-			imc = im0s.copy()
-			video_output.write_original(imc)
+			# video_output.write_original(im0s)
 			if opt.object_detection.enabled:
-				imc = plot_boxes(detections, imc, names)
+				imc = plot_boxes(frame_dets, im0s, names)
 				if opt.produce_files.enable:
 					video_output.write_objects(imc)
 			if opt.tracking.enabled:
 				# imc = plot_tracking(imc, online_tlwhs, online_ids, frame_id=frame_id)
-				imc = plot_tracking(imc, outputs, frame_id=frame_id)
+				imc = plot_tracking(im0s, outputs, frame_id=frame_id)
 				if opt.produce_files.enable:
 					video_output.write_tracking(imc)
 			
@@ -139,20 +145,20 @@ def main(opt):
 				
 			if opt.use_database:
 				frame_time = vid_cap.get(cv2.CAP_PROP_POS_MSEC) / 1000
-				if len(detections):
-					person_count = object_detector.count_label(detections, 'person')
+				if len(frame_dets):
+					person_count = object_detector.count_label(frame_dets, 'person')
 					influx.insertHumans(opt.input_name, person_count, frame_time)
-					influx.insertObjects(opt.input_name, opt.input_video, detections, frame_time, names)
+					influx.insertObjects(opt.input_name, opt.input_video, frame_dets, frame_time, names)
 	 
 			if opt.produce_files.enable:
 				# write JSON
 				frame_time = vid_cap.get(cv2.CAP_PROP_POS_MSEC) / 1000
-				if len(detections):
-					person_count = object_detector.count_label(detections, 'person')
+				if len(frame_dets):
+					person_count = object_detector.count_label(frame_dets, 'person')
 					json_output.add_humans(opt.input_name, person_count, frame_time)
 					for label in OBJECTS_LABELS:
 						if label != 'person':
-							label_count = object_detector.count_label(detections, label)
+							label_count = object_detector.count_label(frame_dets, label)
 							json_output.add_vehicles(opt.input_name, opt.input_video, label, label_count, frame_time)
 
 			frame_id += 1
@@ -277,13 +283,15 @@ def main(opt):
 				anomaly_score = anomaly_scores[frame_id]
 				y_values = action_anomaly_detector.y_values
 				y_indices = action_anomaly_detector.y_indices
+				action = action_anomaly_detector.classes_all[y_indices[frame_id][0]][1]
 				gradcam_images = action_anomaly_detector.gradcam_images
 				img = plot_actions(im0s, y_indices, y_values, action_anomaly_detector.classes_all, f_idx=frame_id)
-				cam_image = plot_gradcam(im0s, gradcam_images, f_idx=frame_id)
+				frame_dets = detections[frame_id]
+				cam_image = plot_gradcam(im0s, gradcam_images, frame_dets, f_idx=frame_id)
 
 			if opt.produce_files.enable:
 				frame_time = vid_cap.get(cv2.CAP_PROP_POS_MSEC) / 1000
-				json_output.add_anomaly(opt.input_name, anomaly_score, opt.input_video, frame_time)
+				json_output.add_anomaly(opt.input_name, anomaly_score, action, opt.input_video, frame_time)
 				video_output.write_actions(img, cam_image)
 
 		if opt.use_database:
