@@ -15,7 +15,10 @@ class InfluxJson:
         if "mt" in opt.input_video:
             base_file_name = os.path.basename(opt.input_video)
             base_file_name = os.path.splitext(base_file_name)[0]
-            time_from_the_name = base_file_name.split("-")[-3]
+            # time_from_the_name = base_file_name.split("-")[-3]
+            # self.start_time_video = datetime.datetime.strptime(time_from_the_name, "%Y%m%dT%H%M%S")
+            # staged recording
+            time_from_the_name = "".join(base_file_name.split("-")[5:-1])
             self.start_time_video = datetime.datetime.strptime(time_from_the_name, "%Y%m%dT%H%M%S")
         elif "ei" in opt.input_video:
             base_file_name = os.path.basename(opt.input_video)
@@ -35,7 +38,7 @@ class InfluxJson:
         self.outputfile = open(os.path.join(opt.output_root, outputfile_name), "w")
         
     
-    def add_anomaly(self, camera_name, value, clip_name, timestamp):
+    def add_anomaly(self, camera_name, value, action, clip_name, timestamp):
         current_time = self.start_time_video + datetime.timedelta(seconds=timestamp)
         current_time = current_time.strftime("%m/%d/%Y %H:%M:%S")
         service_url = "https://protector.smartcommunitylab.it/show"
@@ -46,7 +49,7 @@ class InfluxJson:
                 "time": current_time,
                 "measurement": "anomaly",
                 "tags": {"camera": camera_name, "file_name": file_name},
-                "fields": {"score": value, "video_timestamp": timestamp, "url": url},
+                "fields": {"score": value, "action": action, "video_timestamp": timestamp, "url": url},
             }
         ]
         self.outputfile.write(str(json_body))
