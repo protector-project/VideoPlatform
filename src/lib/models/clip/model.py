@@ -571,12 +571,13 @@ def get_action_clip(opt):
 
     fusion_model = visual_prompt(
         opt.network.sim_header, clip_state_dict, opt.data.num_segments
-    ).cuda()
+    )
+    fusion_model = fusion_model.to(device)
 
     if opt.model_path:
         if os.path.isfile(opt.model_path):
             print(("=> loading checkpoint '{}'".format(opt.model_path)))
-            checkpoint = torch.load(opt.model_path)
+            checkpoint = torch.load(opt.model_path, map_location="cpu")
             dp_state_dict = checkpoint["model_state_dict"]
             torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(
                 dp_state_dict, "module."
