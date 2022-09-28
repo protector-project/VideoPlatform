@@ -65,10 +65,11 @@ def convert_to_mp4(input_folder: str):
                 c = "ffmpeg -i {} -y {}.mp4".format(filepath, os.path.splitext(filepath)[0])
                 logger.info("COMMAND: {}".format(c))
                 c_ = c.split(" ")
-                process = Popen(c_, stdout=PIPE, stderr=PIPE)
+                process = Popen(c_, stdout=PIPE, stderr=PIPE, shell=False)
                 stdout, stderr = process.communicate()
                 logger.info(str(stdout))
                 logger.info(str(stderr))
+
 
     return "done"
 
@@ -107,18 +108,6 @@ def upload_out_folder(context, env_values: dict, out_dir: str, status: str):
         os.remove(filepath)
 
     return env_values["FILE_NAME"]
-
-
-@op
-def fake_processing(input_name: str):
-    or_folder = "/home/vbezerra/Documents/test_dagster/VideoPlatform/out"
-    out_folder = "out/"
-    for filename in os.listdir(or_folder):
-        filepath = os.path.join(or_folder, filename)
-        filedest = os.path.join(out_folder, filename)
-        shutil.copy2(filepath, filedest)
-
-    return out_folder
 
 
 @op

@@ -6,15 +6,15 @@ from video_processing_pipeline import processing_video_pipeline
 import os
 
 @sensor(job=processing_video_pipeline)
-def my_bucket_sensor():
+def my_bucket_sensor(default_status=DefaultSensorStatus.RUNNING):
     envs = {
-        "MINIO_ADDRESS": "172.17.0.3:9000",
+        "MINIO_ADDRESS": os.environ.get("MINIO_ADDRESS"),
         "MINIO_ACCESS_KEY": os.environ.get("MINIO_ACCESS_KEY"),
         "MINIO_SECRET_KEY": os.environ.get("MINIO_SECRET_KEY"),
-        "RAW_BUCKET": "protector",
-        "VIDEO_BUCKET": "video",
-        "INFLUX_BUCKET": "influx",
-        "OUT_FOLDER": "out/"
+        "RAW_BUCKET": os.environ.get("RAW_BUCKET"),
+        "VIDEO_BUCKET": os.environ.get("VIDEO_BUCKET"),
+        "INFLUX_BUCKET": os.environ.get("INFLUX_BUCKET"),
+        "OUT_FOLDER": os.environ.get("OUT_FOLDER")
     }
 
     client = Minio(
