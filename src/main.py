@@ -97,7 +97,7 @@ def main(opt):
     
 			detections.append(frame_dets)
 			frame_dets = []
-			opt.object_detection.enabled = False
+			# opt.object_detection.enabled = False
 
 			################################################ video anomaly detection (image) ################################################
 			if opt.img_anomaly_detection.enabled:

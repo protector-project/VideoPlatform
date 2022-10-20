@@ -187,3 +187,5 @@ assets/
 DCNv2/
 .vscode/launch.json
 config/
+dagster_home/
+scripts/
