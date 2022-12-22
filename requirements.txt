@@ -66,3 +66,7 @@ RandAugment
 pprintpp
 dotmap
 grad-cam
+ftfy
+dagster
+dagit
+minio
