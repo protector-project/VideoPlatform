@@ -15,11 +15,11 @@ class InfluxJson:
         if "mt" in opt.input_video:
             base_file_name = os.path.basename(opt.input_video)
             base_file_name = os.path.splitext(base_file_name)[0]
-            # time_from_the_name = base_file_name.split("-")[-3]
-            # self.start_time_video = datetime.datetime.strptime(time_from_the_name, "%Y%m%dT%H%M%S")
-            # staged recording
-            time_from_the_name = "".join(base_file_name.split("-")[5:-1])
+            time_from_the_name = base_file_name.split("-")[-3]
             self.start_time_video = datetime.datetime.strptime(time_from_the_name, "%Y%m%dT%H%M%S")
+            # staged recording
+            # time_from_the_name = "".join(base_file_name.split("-")[5:-1])
+            # self.start_time_video = datetime.datetime.strptime(time_from_the_name, "%Y%m%dT%H%M%S")
         elif "ei" in opt.input_video:
             base_file_name = os.path.basename(opt.input_video)
             base_file_name = os.path.splitext(base_file_name)[0]

@@ -79,7 +79,7 @@ class ObjectDetector(object):
         :param label: string label
         :return: corresponding numeric class
         """
-        cls = self.model.names.index(label)  # integer class
+        cls = list(self.model.names.values()).index(label)  # integer class
         return cls
 
     def count_label(self, detections, t_label):

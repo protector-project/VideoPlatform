@@ -36,7 +36,7 @@ from lib.utils.torch_utils import select_device
 from lib.utils.visualization import plot_actions, plot_anomaly, plot_boxes, plot_gradcam, plot_pred_err, plot_norm_err, plot_tracking, plot_trajectories
 
 
-OBJECTS_LABELS = ['person', 'bicycle', 'car', 'van', 'truck', 'bus', 'motor']
+OBJECTS_LABELS = ['bicycle', 'bus', 'car', 'motor', 'person', 'truck', 'van']
 
 
 @torch.no_grad()
@@ -90,14 +90,14 @@ def main(opt):
 			frame_dets = []
 
 			################################################ video object detection ################################################
-			opt.object_detection.enabled = True
+			# opt.object_detection.enabled = True
 			if opt.object_detection.enabled:
 				frame_dets = object_detector.process_frame(im0s)
 				frame_dets = frame_dets[0]
     
 			detections.append(frame_dets)
-			frame_dets = []
-			opt.object_detection.enabled = False
+			# frame_dets = []
+			# opt.object_detection.enabled = False
 
 			################################################ video anomaly detection (image) ################################################
 			if opt.img_anomaly_detection.enabled:
@@ -122,7 +122,7 @@ def main(opt):
 					action_anomaly_detector.process_frame(im0s)
 
 			################################################ visualization (detection/tracking) ################################################
-			# video_output.write_original(im0s)
+			video_output.write_original(im0s)
 			if opt.object_detection.enabled:
 				imc = plot_boxes(frame_dets, im0s, names)
 				if opt.produce_files.enable:
