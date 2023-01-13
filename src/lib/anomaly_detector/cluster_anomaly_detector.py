@@ -12,6 +12,8 @@ CLASSES = ['bicycle', 'bus', 'car', 'motor', 'person', 'truck', 'van']
 COLORS = ['red', 'blue', 'green', 'yellow', 'orange', 'purple', 'pink']
 DEBUG_SAVE_IMAGE = None
 ROOT_DIR = "/usr/src/app/"
+DISTANCE_TYPE = "dtw"
+# ROOT_DIR = "/Users/phananhtu/projects/thesis/VideoPlatform/"
 
 
 def process_tracking_output(out_dir: str, filter_class=None, min_traject_len=50):
@@ -28,7 +30,7 @@ def process_tracking_output(out_dir: str, filter_class=None, min_traject_len=50)
                     infos[7])
                 if filter_class is not None and class_id != filter_class:
                     continue
-                center_x, center_y = int((bbox_left + bbox_w) / 2), int((bbox_top + bbox_h) / 2)
+                center_x, center_y = int(bbox_left + bbox_w/2), int(bbox_top + bbox_h/2)
                 if track_id in trajectories:
                     trajectories[track_id]['values'].append([center_x, center_y, class_id])
                     if class_id in trajectories[track_id]['nb_classes']:
@@ -64,9 +66,14 @@ def pairwise_distance(x: list) -> np.ndarray:
     pool = mp.Pool(mp.cpu_count())
     dist_matrix = np.zeros((len(x), len(x)))
     print(f"len of trajectories = {len(x)} nb_cpu = {mp.cpu_count()}")
-    args = [(x[i_a], x[i_b]) for i_a, i_b in list(itertools.combinations(range(len(x)), 2))]
-    # results = pool.starmap(dtw_distance, args)
-    results = pool.starmap(euclid_distance, args)
+    window = 0
+    for tra in x:
+        if len(tra) > window:
+            window = len(tra)
+    args = [(x[i_a], x[i_b], int(window*0.15)) for i_a, i_b in list(itertools.combinations(range(len(x)), 2))]
+    results = pool.starmap(dtw_distance, args)
+    # results = pool.starmap(euclid_distance, args)
+    # results = pool.starmap(euclid_distance_with_window, args)
     for i_tuple, re in zip([(i_a, i_b) for i_a, i_b in list(itertools.combinations(range(len(x)), 2))], results):
         # unpack
         i_a, i_b = i_tuple
@@ -79,29 +86,52 @@ def pairwise_distance(x: list) -> np.ndarray:
 
 def euclid_distance(s: list, t: list):
     cost = 0
-    for i in range(min(len(s), len(t))):
+    n = min(len(s), len(t))
+    for i in range(n):
         cost += cost_func(s[i], t[i])
-    return cost
+    return cost/n
 
 
-def dtw_distance(s: list, t: list, w: int = 3) -> float:
-    # print(f"Calculating dtw_distance between {i_s} and {i_t}")
-    m, l = len(s), len(t)
-    # w = np.max([window, abs(m - l)])
-    dtw_matrix = np.zeros((m + 1, l + 1))
-    for k in range(m + 1):
-        dtw_matrix[k, 0] = np.inf
-    for k in range(l + 1):
-        dtw_matrix[0, k] = np.inf
+def euclid_distance_with_window(s: list, t: list, w=20):
+    cost = 0
+    n = min(len(s), len(t))
+    next_i = 0
+    for i in range(n):
+        cost_i = float('inf')
+        if next_i == len(t)-1:
+            # n = i-1
+            break
+        for j in range(next_i, min(i+w, len(t))):
+            cost_i_j = cost_func(s[i], t[j])
+            if cost_i_j < cost_i:
+                cost_i = cost_i_j
+                next_i = j
+        cost += cost_i
+    return cost/max(len(s), len(t))
 
+
+def dtw_distance(s: list, t: list, window: int = 3) -> float:
+    n, m = len(s), len(t)
+    w = np.max([window, abs(n - m)])
+    dtw_matrix = np.zeros((n + 1, m + 1))
+
+    for i in range(n + 1):
+        for j in range(m + 1):
+            dtw_matrix[i, j] = np.inf
     dtw_matrix[0, 0] = 0
 
-    for k in range(1, m + 1):
-        for p in range(np.max([k - w, 1]), np.min([k + w, l]) + 1):
-            cost = cost_func(s[k], t[p])
-            dtw_matrix[k, p] = cost + min(dtw_matrix[k - 1, p], dtw_matrix[k, p - 1], dtw_matrix[k - 1, p - 1])
+    for i in range(1, n + 1):
+        for j in range(np.max([1, i - w]), np.min([m, i + w]) + 1):
+            dtw_matrix[i, j] = 0
 
-    return dtw_matrix[m, l]
+    for i in range(1, n + 1):
+        for j in range(np.max([1, i - w]), np.min([m, i + w]) + 1):
+            cost = cost_func(s[i - 1], t[j - 1])
+            # take last min from a square box
+            last_min = np.min([dtw_matrix[i - 1, j], dtw_matrix[i, j - 1], dtw_matrix[i - 1, j - 1]])
+            dtw_matrix[i, j] = cost + last_min
+
+    return dtw_matrix[n, m]
 
 
 def vat(data: list, return_odm: bool = False, figure_size: Tuple = (10, 10), save_fig=None):
@@ -230,14 +260,18 @@ def plot_trajectories(x: list, ax, color=None):
 
 def compute_cluster_threshold(edge_values: list):
     sorted_values = sorted(edge_values)
-    # if DEBUG_SAVE_IMAGE is not None:
-    #     x_axis = [edge_values[i] for i in range(1, len(edge_values))]
-    #     plt.plot(range(len(edge_values) - 1), x_axis, '-bo')
-    #     plt.savefig(f"{DEBUG_SAVE_IMAGE}edge_values.png")
-    #
-    #     x_axis = [sorted_values[i] for i in range(1, len(sorted_values))]
-    #     plt.plot(range(len(sorted_values) - 1), x_axis, '-bo')
-    #     plt.savefig(f"{DEBUG_SAVE_IMAGE}edge_values_sorted.png")
+    if DEBUG_SAVE_IMAGE is not None:
+        _, ax = plt.subplots()
+        x_axis = [edge_values[i] for i in range(1, len(edge_values))]
+        ax.plot(range(len(edge_values) - 1), x_axis, '-bo')
+        # plt.show()
+        plt.savefig(f"{DEBUG_SAVE_IMAGE}_values.png")
+
+        _, ax = plt.subplots()
+        x_axis = [sorted_values[i] for i in range(1, len(sorted_values))]
+        ax.plot(range(len(sorted_values) - 1), x_axis, '-bo')
+        # plt.show()
+        plt.savefig(f"{DEBUG_SAVE_IMAGE}_values_sorted.png")
 
     max_value = -1
     max_index = -1
@@ -248,7 +282,7 @@ def compute_cluster_threshold(edge_values: list):
         if dis > max_value:
             max_value = dis
             max_index = i
-    print(f"elbow index = {max_index} value = {sorted_values[max_index]}")
+    print(f"elbow index = {max_index} value[i] = {sorted_values[max_index]} value[i+1] = {sorted_values[max_index+1]}")
     return (sorted_values[max_index] + sorted_values[max_index + 1]) / 2
 
 
@@ -343,65 +377,74 @@ def compute_ivat_ordered_dissimilarity_matrix(x: list):
     return re_ordered_matrix
 
 
-def write_result_to_video(result):
-    for file_name in result:
-        print(f"Write result for {file_name} ....")
-        tracking_info = {}
-        with open(os.path.join(ROOT_DIR, f"out/pza/trajectories/{file_name}.txt"), 'r') as f:
-            for line in f:
-                infos = line.strip().split()
-                frame_id, track_id, bbox_left, bbox_top, bbox_w, bbox_h, class_id, conf = int(infos[0]), int(
-                    infos[1]), int(infos[2]), int(infos[3]), int(infos[4]), int(infos[5]), int(infos[6]), float(
-                    infos[7])
-                if frame_id in tracking_info:
-                    tracking_info[frame_id].append([track_id, bbox_left, bbox_top, bbox_w, bbox_h])
-                else:
-                    tracking_info[frame_id] = [[track_id, bbox_left, bbox_top, bbox_w, bbox_h]]
-        cap = cv2.VideoCapture(os.path.join(ROOT_DIR, f"out/pza/{file_name}_original.mp4"))
-        w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        writer = cv2.VideoWriter(os.path.join(ROOT_DIR, f"out/anomaly/{file_name}_anomaly_detection.mp4"), fourcc, fps, (w, h))
-        i_frame = 0
-        while cap.isOpened():
-            # Capture frame-by-frame
-            ret, frame = cap.read()
-            if ret:
-                if i_frame in tracking_info:
-                    for track in tracking_info[i_frame]:
-                        if track[0] in result[file_name]:
-                            intbox = tuple(map(int, (track[1], track[2], track[1]+track[3], track[2]+track[4])))
-                            if "ANOMALY" in result[file_name][track[0]]:
-                                frame = cv2.rectangle(
-                                    frame, intbox[0:2], intbox[2:4], color=(0, 0, 255), thickness=3)
-                                frame = cv2.putText(frame, result[file_name][track[0]], (intbox[0], intbox[1] + 30),
-                                                    cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), thickness=2)
-                            else:
-                                frame = cv2.rectangle(
-                                    frame, intbox[0:2], intbox[2:4], color=(0, 255, 0), thickness=3)
-                                frame = cv2.putText(frame, result[file_name][track[0]], (intbox[0], intbox[1] + 30),
-                                                    cv2.FONT_HERSHEY_PLAIN, 1, (255, 0, 0), thickness=2)
-                writer.write(frame)
-                i_frame += 1
+def write_video_to_file(file_name, result):
+    print(f"Write result for {file_name} ....")
+    tracking_info = {}
+    with open(os.path.join(ROOT_DIR, f"out/pza/trajectories/{file_name}.txt"), 'r') as f:
+        for line in f:
+            infos = line.strip().split()
+            frame_id, track_id, bbox_left, bbox_top, bbox_w, bbox_h, class_id, conf = int(infos[0]), int(
+                infos[1]), int(infos[2]), int(infos[3]), int(infos[4]), int(infos[5]), int(infos[6]), float(
+                infos[7])
+            if frame_id in tracking_info:
+                tracking_info[frame_id].append([track_id, bbox_left, bbox_top, bbox_w, bbox_h])
             else:
-                break
-        cap.release()
-        writer.release()
+                tracking_info[frame_id] = [[track_id, bbox_left, bbox_top, bbox_w, bbox_h]]
+    cap = cv2.VideoCapture(os.path.join(ROOT_DIR, f"out/pza/{file_name}_original.mp4"))
+    w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    writer = cv2.VideoWriter(os.path.join(ROOT_DIR, f"out/anomaly_dtw/{file_name}_anomaly_detection.mp4"), fourcc, fps,
+                             (w, h))
+    i_frame = 0
+    while cap.isOpened():
+        # Capture frame-by-frame
+        ret, frame = cap.read()
+        if ret:
+            if i_frame in tracking_info:
+                for track in tracking_info[i_frame]:
+                    if track[0] in result[file_name]:
+                        intbox = tuple(map(int, (track[1], track[2], track[1] + track[3], track[2] + track[4])))
+                        if "ANOMALY" in result[file_name][track[0]]:
+                            frame = cv2.rectangle(
+                                frame, intbox[0:2], intbox[2:4], color=(0, 0, 255), thickness=3)
+                            frame = cv2.putText(frame, result[file_name][track[0]], (intbox[0], intbox[1] + 30),
+                                                cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), thickness=2)
+                        else:
+                            frame = cv2.rectangle(
+                                frame, intbox[0:2], intbox[2:4], color=(0, 255, 0), thickness=3)
+                            frame = cv2.putText(frame, result[file_name][track[0]], (intbox[0], intbox[1] + 30),
+                                                cv2.FONT_HERSHEY_PLAIN, 1, (255, 0, 0), thickness=2)
+            writer.write(frame)
+            i_frame += 1
+        else:
+            break
+    cap.release()
+    writer.release()
+
+
+def write_results(result):
+    pool = mp.Pool(mp.cpu_count())
+    args = [(file_name, result) for file_name in result]
+    pool.starmap(write_video_to_file, args)
 
 
 def main():
     beta = 0.01
     cluster_result = {}
     for i_c in range(len(CLASSES)):
-        list_traject, lst_class_id, map_traject = process_tracking_output(ROOT_DIR + "out/pza/trajectories", filter_class=i_c)
+        list_traject, lst_class_id, map_traject = process_tracking_output(ROOT_DIR + "out/pza/trajectories_test", filter_class=i_c)
         if len(list_traject) == 0:
             continue
+        print(f"{'-' * 10}map_trajectories of {CLASSES[i_c]}{'-' * 10}\n{map_traject}\n{'-' * 30}")
         nb_min_cluster_amount = beta * len(list_traject)
         print(f"nb_min_cluster_amount = {nb_min_cluster_amount}")
+        global DEBUG_SAVE_IMAGE
+        DEBUG_SAVE_IMAGE = f"{ROOT_DIR}/out/{CLASSES[i_c]}_edges_{DISTANCE_TYPE}_distance"
         _, ax = plt.subplots()
         plot_trajectories(list_traject, ax)
-        plt.savefig(f"{ROOT_DIR}/out/trajectories_{CLASSES[i_c]}.png")
+        plt.savefig(f"{ROOT_DIR}/out/trajectories_{CLASSES[i_c]}_{DISTANCE_TYPE}.png")
         _, clusters = compute_ordered_dissimilarity_matrix(list_traject)
 
         _, ax = plt.subplots()
@@ -417,12 +460,12 @@ def main():
                     cluster_result[file_name][map_traject[c]['track_id']] = f"{CLASSES[i_c]}_ANOMALY"
                 else:
                     cluster_result[file_name][map_traject[c]['track_id']] = f"{CLASSES[i_c]}_cluster_{i}"
-
-            plot_trajectories(traject, ax,
-                              color=COLORS[int(i % len(COLORS))] if len(cl) > nb_min_cluster_amount else 'black')
-        plt.savefig(f"{ROOT_DIR}/out/cluster_{CLASSES[i_c]}.png")
+            if len(traject) < nb_min_cluster_amount:
+                plot_trajectories(traject, ax,
+                                  color=COLORS[int(i % len(COLORS))] if len(cl) > nb_min_cluster_amount else 'black')
+        plt.savefig(f"{ROOT_DIR}/out/cluster_{CLASSES[i_c]}_anomaly_{DISTANCE_TYPE}.png")
         print(f"{'-'*10} DONE CLASS {CLASSES[i_c]} {'-'*10}")
-    write_result_to_video(cluster_result)
+    write_results(cluster_result)
 
 
 if __name__ == '__main__':
