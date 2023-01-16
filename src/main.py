@@ -187,7 +187,7 @@ def main(opt):
 		obs_len = opt.traj_anomaly_detection.obs_len
 		pred_len = opt.traj_anomaly_detection.pred_len
 
-	base = os.path.basename(opt.input_video)
+	base = Path(os.path.basename(opt.input_video)).stem
 	f_trajectories_anomaly_result = open(opt.traj_anomaly_detection_cluster.traj_anomaly_results_path)
 	trajectories_anomaly_results = json.load(f_trajectories_anomaly_result)
 	trajectories_anomaly_result = trajectories_anomaly_results[base]
