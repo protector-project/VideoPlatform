@@ -271,18 +271,18 @@ def plot_trajectories(x: list, ax, color=None):
 
 def compute_cluster_threshold(edge_values: list):
     sorted_values = sorted(edge_values)
-    if DEBUG_SAVE_IMAGE is not None:
-        _, ax = plt.subplots()
-        x_axis = [edge_values[i] for i in range(1, len(edge_values))]
-        ax.plot(range(len(edge_values) - 1), x_axis, '-bo')
-        # plt.show()
-        plt.savefig(f"{DEBUG_SAVE_IMAGE}_values.png")
-
-        _, ax = plt.subplots()
-        x_axis = [sorted_values[i] for i in range(1, len(sorted_values))]
-        ax.plot(range(len(sorted_values) - 1), x_axis, '-bo')
-        # plt.show()
-        plt.savefig(f"{DEBUG_SAVE_IMAGE}_values_sorted.png")
+    # if DEBUG_SAVE_IMAGE is not None:
+    #     _, ax = plt.subplots()
+    #     x_axis = [edge_values[i] for i in range(1, len(edge_values))]
+    #     ax.plot(range(len(edge_values) - 1), x_axis, '-bo')
+    #     # plt.show()
+    #     plt.savefig(f"{DEBUG_SAVE_IMAGE}_values.png")
+    #
+    #     _, ax = plt.subplots()
+    #     x_axis = [sorted_values[i] for i in range(1, len(sorted_values))]
+    #     ax.plot(range(len(sorted_values) - 1), x_axis, '-bo')
+    #     # plt.show()
+    #     plt.savefig(f"{DEBUG_SAVE_IMAGE}_values_sorted.png")
 
     max_value = -1
     max_index = -1
@@ -484,14 +484,14 @@ def main(args):
             logging.info(f"{'-' * 10}map_trajectories of {CLASSES[i_c]}{'-' * 10}\n{map_traject}\n{'-' * 30}")
             nb_min_cluster_amount = beta * len(list_traject)
             logging.info(f"nb_min_cluster_amount = {nb_min_cluster_amount}")
-            global DEBUG_SAVE_IMAGE
-            DEBUG_SAVE_IMAGE = f"{args.output_path}/{cam_id}_{CLASSES[i_c]}_edges_{args.distance_type}_distance"
-            _, ax = plt.subplots()
-            plot_trajectories(list_traject, ax)
-            plt.savefig(f"{args.output_path}/{cam_id}_{CLASSES[i_c]}_{args.distance_type}_trajectories.png")
+            # global DEBUG_SAVE_IMAGE
+            # DEBUG_SAVE_IMAGE = f"{args.output_path}/{cam_id}_{CLASSES[i_c]}_edges_{args.distance_type}_distance"
+            # _, ax = plt.subplots()
+            # plot_trajectories(list_traject, ax)
+            # plt.savefig(f"{args.output_path}/{cam_id}_{CLASSES[i_c]}_{args.distance_type}_trajectories.png")
             _, clusters = compute_ordered_dissimilarity_matrix(list_traject, args.distance_type)
 
-            _, ax = plt.subplots()
+            # _, ax = plt.subplots()
             for i, cl in enumerate(clusters):
                 traject = []
                 for c in cl:
@@ -504,10 +504,10 @@ def main(args):
                         cluster_result[file_name][map_traject[c]['track_id']] = {"cluster": f"{CLASSES[i_c]}_ANOMALY", "score": len(cl)}
                     else:
                         cluster_result[file_name][map_traject[c]['track_id']] = {"cluster": f"{CLASSES[i_c]}_cluster_{i}", "score": len(cl)}
-                if len(traject) < nb_min_cluster_amount:
-                    plot_trajectories(traject, ax,
-                                      color=COLORS[int(i % len(COLORS))] if len(cl) > nb_min_cluster_amount else 'black')
-            plt.savefig(f"{args.output_path}/{cam_id}_{CLASSES[i_c]}_{args.distance_type}_cluster_anomaly.png")
+                # if len(traject) < nb_min_cluster_amount:
+                #     plot_trajectories(traject, ax,
+                #                       color=COLORS[int(i % len(COLORS))] if len(cl) > nb_min_cluster_amount else 'black')
+            # plt.savefig(f"{args.output_path}/{cam_id}_{CLASSES[i_c]}_{args.distance_type}_cluster_anomaly.png")
             logging.info(f"{'-'*10} DONE CLASS {CLASSES[i_c]} {'-'*10}")
     # write_results(cluster_result, args.trajectories_path, args.input_videos_path, args.output_path)
     write_results_to_json_file(cluster_result, args.trajectories_path, args.output_path)
