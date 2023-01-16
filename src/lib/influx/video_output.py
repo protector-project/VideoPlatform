@@ -56,6 +56,11 @@ class VideoOutput:
             self.video_writers.append(self.actions_writer)
             self.video_writers.append(self.gradcam_writer)
 
+        if opt.traj_anomaly_detection_cluster.enabled:
+            traj_anomaly_detection_out = Path(base_file_name).stem + "_traj_anomaly.mp4"
+            self.traj_anomaly_detection_writer = cv2.VideoWriter(os.path.join(opt.output_root, traj_anomaly_detection_out), fourcc, fps, (w, h))
+            self.video_writers.append(self.traj_anomaly_detection_writer)
+
     def write_original(self, original_frame):
          self.original_writer.write(original_frame)
         
@@ -73,6 +78,9 @@ class VideoOutput:
     def write_actions(self, actions_frame, cam_image):
         self.actions_writer.write(actions_frame)
         self.gradcam_writer.write(cam_image)
+
+    def write_traj_anomaly_detection(self, frame):
+        self.traj_anomaly_detection_writer.write(frame)
         
     def release_all(self):
         for video_writer in self.video_writers:
