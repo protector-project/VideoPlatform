@@ -316,3 +316,4 @@ def plot_gradcam(im0, gradcam_images, frame_dets, f_idx):
 	cam_image = show_cam_on_image(imc, grayscale_cam)
 
 	return cam_image
+
