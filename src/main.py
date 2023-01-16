@@ -324,8 +324,8 @@ def main(opt):
     
         ################################################ video anomaly detection (trajectory) ################################################
         if opt.traj_anomaly_detection_cluster.enabled and trajectories_anomaly_result is not None:
-            if frame_id in trajectories_anomaly_result:
-                traject_result = trajectories_anomaly_result[frame_id]
+            if str(frame_id) in trajectories_anomaly_result:
+                traject_result = trajectories_anomaly_result[str(frame_id)]
                 imc = plot_traj_anomaly(im0s, traject_result)
             else:
                 imc = im0s

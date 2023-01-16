@@ -11,7 +11,7 @@ import logging
 import json
 
 
-CLASSES = ['bicycle', 'bus', 'car', 'motor', 'person', 'truck', 'van']
+CLASSES = ['person', 'bicycle', 'car', 'van', 'truck', 'bus', 'motor']
 COLORS = ['red', 'blue', 'green', 'yellow', 'orange', 'purple', 'pink']
 DEBUG_SAVE_IMAGE = None
 
