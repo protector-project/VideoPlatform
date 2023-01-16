@@ -316,3 +316,38 @@ def plot_gradcam(im0, gradcam_images, frame_dets, f_idx):
 	cam_image = show_cam_on_image(imc, grayscale_cam)
 
 	return cam_image
+
+
+def plot_traj_anomaly(image, results):
+	im = np.ascontiguousarray(np.copy(image))
+	text_scale = max(1, image.shape[1] / 1600.0)
+	text_thickness = 2
+	line_thickness = max(1, int(image.shape[1] / 500.0))
+
+	for j, output in enumerate(results):
+		text = output[5]
+		score = output[6]
+		bbox_left = output[1]
+		bbox_top = output[2]
+		bbox_right = output[1]+output[3]
+		bbox_bottom = output[2]+output[4]
+		intbox = tuple(map(int, (bbox_left, bbox_top, bbox_right, bbox_bottom)))
+
+		if "ANOMALY" in text:
+			color = (0, 0, 255)
+		else:
+			color = (0, 255, 0)
+
+		cv2.rectangle(
+			im, intbox[0:2], intbox[2:4], color=color, thickness=line_thickness
+		)
+		cv2.putText(
+			im,
+			f"{text}-{score}",
+			(intbox[0], intbox[1] + 30),
+			cv2.FONT_HERSHEY_PLAIN,
+			text_scale,
+			color,
+			thickness=text_thickness,
+		)
+	return im

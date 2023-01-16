@@ -91,6 +91,40 @@ class InfluxJson:
         self.outputfile.write(str(json_body))
         self.outputfile.write("\n")
         # print(json_body)
-        
+
+    def add_traj_anomaly(self, camera_name, clip_name, frame_id, timestamp, traject_result):
+        current_time = self.start_time_video + datetime.timedelta(seconds=timestamp)
+        current_time = current_time.strftime("%m/%d/%Y %H:%M:%S")
+        json_body = []
+        normal_trajectories = 0
+        abnormal_trajectories = 0
+        max_score = -1
+        for re in traject_result:
+            if "ANOMALY" in re[5]:
+                abnormal_trajectories += 1
+            else:
+                normal_trajectories += 1
+            score = 1.0/float(re[6])
+            if score > max_score:
+                max_score = score
+        json_body.append(
+            {
+                "time": current_time,
+                "measurement": "anomaly_trajectories",
+                "tags": {
+                    "camera": camera_name,
+                    "file_name": clip_name
+                },
+                "fields": {
+                    "frame_id": frame_id,
+                    "normal_trajectories": normal_trajectories,
+                    "abnormal_trajectories": abnormal_trajectories,
+                    "score": max_score
+                },
+            }
+        )
+        self.outputfile.write(str(json_body))
+        self.outputfile.write("\n")
+
     def close(self):
         self.outputfile.close()

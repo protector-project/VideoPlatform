@@ -51,6 +51,13 @@ class opts(object):
             help="expected output root path",
         )
 
+        self.parser.add_argument(
+            "--traj_anomaly_results_path",
+            type=str,
+            required=True,
+            help="path to the anomaly results path",
+        )
+
         # config
         self.parser.add_argument(
             "--config_file",

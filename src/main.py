@@ -2,6 +2,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 import enum
+import json
 from pathlib import Path
 
 from pyrsistent import optional
@@ -33,7 +34,7 @@ from lib.utils.general import xyxy2xywh
 from lib.utils.preprocessing import load_and_window_MT
 
 from lib.utils.torch_utils import select_device
-from lib.utils.visualization import plot_actions, plot_anomaly, plot_boxes, plot_gradcam, plot_pred_err, plot_norm_err, plot_tracking, plot_trajectories
+from lib.utils.visualization import plot_actions, plot_anomaly, plot_boxes, plot_gradcam, plot_pred_err, plot_norm_err, plot_tracking, plot_trajectories, plot_traj_anomaly
 
 
 OBJECTS_LABELS = ['bicycle', 'bus', 'car', 'motor', 'person', 'truck', 'van']
@@ -186,7 +187,11 @@ def main(opt):
 		obs_len = opt.traj_anomaly_detection.obs_len
 		pred_len = opt.traj_anomaly_detection.pred_len
 
-	# base = os.path.basename(opt.input_video)
+	base = os.path.basename(opt.input_video)
+	f_trajectories_anomaly_result = open(opt.traj_anomaly_results_path)
+	trajectories_anomaly_results = json.load(f_trajectories_anomaly_result)
+	trajectories_anomaly_result = trajectories_anomaly_results[base]
+
 	# filename = f"output/{os.path.splitext(base)[0]}-vstack6.mp4"
 	# hvideo = cv2.VideoWriter(filename, cv2.VideoWriter_fourcc(*'mp4v'), 12.5, (1600*3,1200))
 	# vvideo = cv2.VideoWriter(filename, cv2.VideoWriter_fourcc(*'mp4v'), 12.5, (1600,1200*3))
@@ -298,8 +303,17 @@ def main(opt):
 			frame_time = vid_cap.get(cv2.CAP_PROP_POS_MSEC) / 1000
 			influx.insertAnomaly(opt.input_name, float(anomaly_score), opt.input_video, frame_time)
 
+		if opt.traj_anomaly_detection.enabled and trajectories_anomaly_result is not None:
+			traject_result = trajectories_anomaly_result[frame_id]
+			imc = plot_traj_anomaly(im0s, traject_result)
+			if opt.produce_files.enable:
+				frame_time = vid_cap.get(cv2.CAP_PROP_POS_MSEC) / 1000
+				video_output.write_tracking(imc)
+				json_output.add_traj_anomaly(opt.input_name, opt.input_video, frame_id, frame_time, traject_result)
+
 		frame_id += 1
 
+	f_trajectories_anomaly_result.close()
 	cv2.destroyAllWindows()
 	if opt.produce_files.enable:
 		json_output.close()

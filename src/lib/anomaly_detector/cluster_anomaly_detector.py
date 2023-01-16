@@ -6,17 +6,17 @@ import numpy as np
 import multiprocessing as mp
 import itertools
 import cv2
+import argparse
+import logging
+import json
 
 
 CLASSES = ['bicycle', 'bus', 'car', 'motor', 'person', 'truck', 'van']
 COLORS = ['red', 'blue', 'green', 'yellow', 'orange', 'purple', 'pink']
 DEBUG_SAVE_IMAGE = None
-ROOT_DIR = "/usr/src/app/"
-DISTANCE_TYPE = "dtw"
-# ROOT_DIR = "/Users/phananhtu/projects/thesis/VideoPlatform/"
 
 
-def process_tracking_output(out_dir: str, filter_class=None, min_traject_len=50):
+def process_tracking_output(out_dir: str, filter_class: int, camera_id: str, min_traject_len=50):
     list_trajectories = []
     list_class_id = []
     map_traject2file = {}
@@ -25,10 +25,10 @@ def process_tracking_output(out_dir: str, filter_class=None, min_traject_len=50)
         with open(os.path.join(out_dir, file), 'r') as f:
             for line in f:
                 infos = line.strip().split()
-                frame_id, track_id, bbox_left, bbox_top, bbox_w, bbox_h, class_id, conf = int(infos[0]), int(
+                frame_id, track_id, bbox_left, bbox_top, bbox_w, bbox_h, class_id, conf, cam_id = int(infos[0]), int(
                     infos[1]), int(infos[2]), int(infos[3]), int(infos[4]), int(infos[5]), int(infos[6]), float(
-                    infos[7])
-                if filter_class is not None and class_id != filter_class:
+                    infos[7]), infos[8]
+                if cam_id != camera_id or class_id != filter_class:
                     continue
                 center_x, center_y = int(bbox_left + bbox_w/2), int(bbox_top + bbox_h/2)
                 if track_id in trajectories:
@@ -62,18 +62,27 @@ def cost_func(s: list, t: list) -> float:
     # return abs(s[0] - t[0]) + abs(s[1] - t[1])
 
 
-def pairwise_distance(x: list) -> np.ndarray:
+def pairwise_distance(x: list, distance_type: str) -> np.ndarray:
     pool = mp.Pool(mp.cpu_count())
     dist_matrix = np.zeros((len(x), len(x)))
-    print(f"len of trajectories = {len(x)} nb_cpu = {mp.cpu_count()}")
-    window = 0
-    for tra in x:
-        if len(tra) > window:
-            window = len(tra)
-    args = [(x[i_a], x[i_b], int(window*0.15)) for i_a, i_b in list(itertools.combinations(range(len(x)), 2))]
-    results = pool.starmap(dtw_distance, args)
-    # results = pool.starmap(euclid_distance, args)
-    # results = pool.starmap(euclid_distance_with_window, args)
+    logging.info(f"len of trajectories = {len(x)} nb_cpu = {mp.cpu_count()}")
+    if distance_type == "dtw" or distance_type == "euclid_window":
+        window = 0
+        for tra in x:
+            if len(tra) > window:
+                window = len(tra)
+        args = [(x[i_a], x[i_b], int(window*0.15)) for i_a, i_b in list(itertools.combinations(range(len(x)), 2))]
+        print(f"len(args) = {len(args)}")
+        if distance_type == "dtw":
+            results = pool.starmap(dtw_distance, args)
+        else:
+            results = pool.starmap(euclid_distance_with_window, args)
+    elif distance_type == "euclid":
+        args = [(x[i_a], x[i_b]) for i_a, i_b in list(itertools.combinations(range(len(x)), 2))]
+        results = pool.starmap(euclid_distance, args)
+    else:
+        raise NotImplementedError(f"Does not support {distance_type}")
+
     for i_tuple, re in zip([(i_a, i_b) for i_a, i_b in list(itertools.combinations(range(len(x)), 2))], results):
         # unpack
         i_a, i_b = i_tuple
@@ -134,13 +143,15 @@ def dtw_distance(s: list, t: list, window: int = 3) -> float:
     return dtw_matrix[n, m]
 
 
-def vat(data: list, return_odm: bool = False, figure_size: Tuple = (10, 10), save_fig=None):
+def vat(data: list, distance_type: str, return_odm: bool = False, figure_size: Tuple = (10, 10), save_fig=None):
     """VAT means Visual assessment of tendency. basically, it allow to asses cluster tendency
     through a map based on the dissimilarity matrix.
     Parameters
     ----------
     data : matrix
         numpy array
+    distance_type: string
+        type of distance
     return_odm : return the Ordered dissimilarity Matrix
         boolean (default to False)
     figure_size : size of the VAT.
@@ -153,7 +164,7 @@ def vat(data: list, return_odm: bool = False, figure_size: Tuple = (10, 10), sav
         the ordered dissimilarity matrix plotted.
     """
 
-    ordered_dissimilarity_matrix, _ = compute_ordered_dissimilarity_matrix(data)
+    ordered_dissimilarity_matrix, _ = compute_ordered_dissimilarity_matrix(data, distance_type)
 
     _, ax = plt.subplots(figsize=figure_size)
     ax.imshow(
@@ -282,14 +293,12 @@ def compute_cluster_threshold(edge_values: list):
         if dis > max_value:
             max_value = dis
             max_index = i
-    print(f"elbow index = {max_index} value[i] = {sorted_values[max_index]} value[i+1] = {sorted_values[max_index+1]}")
+    logging.info(f"elbow index = {max_index} value[i] = {sorted_values[max_index]} value[i+1] = {sorted_values[max_index+1]}")
     return (sorted_values[max_index] + sorted_values[max_index + 1]) / 2
 
 
-def compute_ordered_dissimilarity_matrix(x: list):
-    print("calculating dtw pairwise distance ....")
-    matrix_of_pairwise_distance = pairwise_distance(x)
-    print("computing ordered dissimilarity matrix ....")
+def compute_ordered_dissimilarity_matrix(x: list, distance_type: str):
+    matrix_of_pairwise_distance = pairwise_distance(x, distance_type)
     dis_matrix, spanning_tree, edge_values = compute_ordered_dis_njit(matrix_of_pairwise_distance)
     alpha = compute_cluster_threshold(edge_values)
 
@@ -303,11 +312,11 @@ def compute_ordered_dissimilarity_matrix(x: list):
             cluster.append(spanning_tree[i])
     lst_cluster.append(cluster)
     for i, cl in enumerate(lst_cluster):
-        print(f"cluster {i}: {cl}")
+        logging.info(f"cluster {i}: {cl}")
     return dis_matrix, lst_cluster
 
 
-def ivat(data: list, return_odm: bool = False, figure_size: Tuple = (10, 10), save_fig=None):
+def ivat(data: list, distance_type: str, return_odm: bool = False, figure_size: Tuple = (10, 10), save_fig=None):
     """iVat return a visualisation based on the Vat but more reliable and easier to
     interpret.
     Parameters
@@ -326,7 +335,7 @@ def ivat(data: list, return_odm: bool = False, figure_size: Tuple = (10, 10), sa
         the ivat ordered dissimilarity matrix
     """
 
-    ordered_matrix = compute_ivat_ordered_dissimilarity_matrix(data)
+    ordered_matrix = compute_ivat_ordered_dissimilarity_matrix(data, distance_type)
 
     _, ax = plt.subplots(figsize=figure_size)
     ax.imshow(ordered_matrix, cmap="gray", vmin=0, vmax=np.max(ordered_matrix))
@@ -339,20 +348,22 @@ def ivat(data: list, return_odm: bool = False, figure_size: Tuple = (10, 10), sa
         return ordered_matrix
 
 
-def compute_ivat_ordered_dissimilarity_matrix(x: list):
+def compute_ivat_ordered_dissimilarity_matrix(x: list, distance_type: str):
     """The ordered dissimilarity matrix is used by ivat. It is a just a a reordering
     of the dissimilarity matrix.
     Parameters
     ----------
     x : matrix
         numpy array
+    distance_type: string
+        type of distance
     Return
     -------
     D_prim : matrix
         the ordered dissimilarity matrix
     """
 
-    ordered_matrix, _ = compute_ordered_dissimilarity_matrix(x)
+    ordered_matrix, _ = compute_ordered_dissimilarity_matrix(x, distance_type)
     print("Re-ordering matrix ...")
     re_ordered_matrix = np.zeros((ordered_matrix.shape[0], ordered_matrix.shape[0]))
 
@@ -377,10 +388,10 @@ def compute_ivat_ordered_dissimilarity_matrix(x: list):
     return re_ordered_matrix
 
 
-def write_video_to_file(file_name, result):
+def write_video_to_file(file_name, result, trajectories_path, input_video_path, output_path):
     print(f"Write result for {file_name} ....")
     tracking_info = {}
-    with open(os.path.join(ROOT_DIR, f"out/pza/trajectories/{file_name}.txt"), 'r') as f:
+    with open(os.path.join(trajectories_path, f"{file_name}.txt"), 'r') as f:
         for line in f:
             infos = line.strip().split()
             frame_id, track_id, bbox_left, bbox_top, bbox_w, bbox_h, class_id, conf = int(infos[0]), int(
@@ -390,12 +401,12 @@ def write_video_to_file(file_name, result):
                 tracking_info[frame_id].append([track_id, bbox_left, bbox_top, bbox_w, bbox_h])
             else:
                 tracking_info[frame_id] = [[track_id, bbox_left, bbox_top, bbox_w, bbox_h]]
-    cap = cv2.VideoCapture(os.path.join(ROOT_DIR, f"out/pza/{file_name}_original.mp4"))
+    cap = cv2.VideoCapture(os.path.join(input_video_path, f"{file_name}_original.mp4"))
     w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = cap.get(cv2.CAP_PROP_FPS)
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    writer = cv2.VideoWriter(os.path.join(ROOT_DIR, f"out/anomaly_dtw/{file_name}_anomaly_detection.mp4"), fourcc, fps,
+    writer = cv2.VideoWriter(os.path.join(output_path, f"videos/{file_name}_anomaly_detection.mp4"), fourcc, fps,
                              (w, h))
     i_frame = 0
     while cap.isOpened():
@@ -406,15 +417,15 @@ def write_video_to_file(file_name, result):
                 for track in tracking_info[i_frame]:
                     if track[0] in result[file_name]:
                         intbox = tuple(map(int, (track[1], track[2], track[1] + track[3], track[2] + track[4])))
-                        if "ANOMALY" in result[file_name][track[0]]:
+                        if "ANOMALY" in result[file_name][track[0]]['cluster']:
                             frame = cv2.rectangle(
                                 frame, intbox[0:2], intbox[2:4], color=(0, 0, 255), thickness=3)
-                            frame = cv2.putText(frame, result[file_name][track[0]], (intbox[0], intbox[1] + 30),
+                            frame = cv2.putText(frame, f"{result[file_name][track[0]]['cluster']}-{result[file_name][track[0]]['score']}", (intbox[0], intbox[1] + 30),
                                                 cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), thickness=2)
                         else:
                             frame = cv2.rectangle(
                                 frame, intbox[0:2], intbox[2:4], color=(0, 255, 0), thickness=3)
-                            frame = cv2.putText(frame, result[file_name][track[0]], (intbox[0], intbox[1] + 30),
+                            frame = cv2.putText(frame, f"{result[file_name][track[0]]['cluster']}-{result[file_name][track[0]]['score']}", (intbox[0], intbox[1] + 30),
                                                 cv2.FONT_HERSHEY_PLAIN, 1, (255, 0, 0), thickness=2)
             writer.write(frame)
             i_frame += 1
@@ -424,49 +435,94 @@ def write_video_to_file(file_name, result):
     writer.release()
 
 
-def write_results(result):
+def write_results(result, trajectories_path, input_video_path, output_path):
     pool = mp.Pool(mp.cpu_count())
-    args = [(file_name, result) for file_name in result]
+    args = [(file_name, result, trajectories_path, input_video_path, output_path) for file_name in result]
     pool.starmap(write_video_to_file, args)
 
 
-def main():
+def write_results_to_json_file(result, trajectories_path, output_path):
+    obj_results = {}
+    for file_name in result:
+        f_result = {}
+        with open(os.path.join(trajectories_path, f"{file_name}.txt"), 'r') as f:
+            for line in f:
+                infos = line.strip().split()
+                frame_id, track_id, bbox_left, bbox_top, bbox_w, bbox_h, class_id, conf = int(infos[0]), int(
+                    infos[1]), int(infos[2]), int(infos[3]), int(infos[4]), int(infos[5]), int(infos[6]), float(
+                    infos[7])
+                if frame_id not in f_result:
+                    f_result[frame_id] = []
+                if track_id in result[file_name]:
+                    f_result[frame_id].append([track_id, bbox_left, bbox_top, bbox_w, bbox_h, result[file_name][track_id]['cluster'], result[file_name][track_id]['score']])
+
+        obj_results[file_name] = f_result
+
+    with open(os.path.join(output_path, "anomaly_results.json"), 'w') as f:
+        json.dump(obj_results, f)
+
+
+def get_list_camera_id(trajectories_path):
+    camera_ids = set()
+    for file_name in os.listdir(trajectories_path):
+        with open(os.path.join(trajectories_path, file_name), 'r') as f:
+            for line in f:
+                camera_ids.add(line.strip().split()[-1])
+    return camera_ids
+
+
+def main(args):
     beta = 0.01
     cluster_result = {}
-    for i_c in range(len(CLASSES)):
-        list_traject, lst_class_id, map_traject = process_tracking_output(ROOT_DIR + "out/pza/trajectories_test", filter_class=i_c)
-        if len(list_traject) == 0:
-            continue
-        print(f"{'-' * 10}map_trajectories of {CLASSES[i_c]}{'-' * 10}\n{map_traject}\n{'-' * 30}")
-        nb_min_cluster_amount = beta * len(list_traject)
-        print(f"nb_min_cluster_amount = {nb_min_cluster_amount}")
-        global DEBUG_SAVE_IMAGE
-        DEBUG_SAVE_IMAGE = f"{ROOT_DIR}/out/{CLASSES[i_c]}_edges_{DISTANCE_TYPE}_distance"
-        _, ax = plt.subplots()
-        plot_trajectories(list_traject, ax)
-        plt.savefig(f"{ROOT_DIR}/out/trajectories_{CLASSES[i_c]}_{DISTANCE_TYPE}.png")
-        _, clusters = compute_ordered_dissimilarity_matrix(list_traject)
+    camera_ids = get_list_camera_id(args.trajectories_path)
+    for cam_id in camera_ids:
+        logging.info(f"{'-'*10}cam_id = {cam_id}{'-'*10}")
+        for i_c in range(len(CLASSES)):
+            list_traject, lst_class_id, map_traject = process_tracking_output(args.trajectories_path, i_c, cam_id)
+            if len(list_traject) == 0:
+                continue
+            logging.info(f"{'-' * 10}map_trajectories of {CLASSES[i_c]}{'-' * 10}\n{map_traject}\n{'-' * 30}")
+            nb_min_cluster_amount = beta * len(list_traject)
+            logging.info(f"nb_min_cluster_amount = {nb_min_cluster_amount}")
+            global DEBUG_SAVE_IMAGE
+            DEBUG_SAVE_IMAGE = f"{args.output_path}/{cam_id}_{CLASSES[i_c]}_edges_{args.distance_type}_distance"
+            _, ax = plt.subplots()
+            plot_trajectories(list_traject, ax)
+            plt.savefig(f"{args.output_path}/{cam_id}_{CLASSES[i_c]}_{args.distance_type}_trajectories.png")
+            _, clusters = compute_ordered_dissimilarity_matrix(list_traject, args.distance_type)
 
-        _, ax = plt.subplots()
-        for i, cl in enumerate(clusters):
-            traject = []
-            for c in cl:
-                traject.append(list_traject[c])
-                file_name = map_traject[c]['file'].replace(".txt", "")
-                if file_name not in cluster_result:
-                    cluster_result[file_name] = {}
-                if len(cl) < nb_min_cluster_amount:
-                    print(f"{'!' * 10} DETECTED ANOMALY IN {file_name} {'!' * 10}")
-                    cluster_result[file_name][map_traject[c]['track_id']] = f"{CLASSES[i_c]}_ANOMALY"
-                else:
-                    cluster_result[file_name][map_traject[c]['track_id']] = f"{CLASSES[i_c]}_cluster_{i}"
-            if len(traject) < nb_min_cluster_amount:
-                plot_trajectories(traject, ax,
-                                  color=COLORS[int(i % len(COLORS))] if len(cl) > nb_min_cluster_amount else 'black')
-        plt.savefig(f"{ROOT_DIR}/out/cluster_{CLASSES[i_c]}_anomaly_{DISTANCE_TYPE}.png")
-        print(f"{'-'*10} DONE CLASS {CLASSES[i_c]} {'-'*10}")
-    write_results(cluster_result)
+            _, ax = plt.subplots()
+            for i, cl in enumerate(clusters):
+                traject = []
+                for c in cl:
+                    traject.append(list_traject[c])
+                    file_name = map_traject[c]['file'].replace(".txt", "")
+                    if file_name not in cluster_result:
+                        cluster_result[file_name] = {}
+                    if len(cl) < nb_min_cluster_amount:
+                        logging.info(f"{'!' * 10} DETECTED ANOMALY IN {file_name} {'!' * 10}")
+                        cluster_result[file_name][map_traject[c]['track_id']] = {"cluster": f"{CLASSES[i_c]}_ANOMALY", "score": len(cl)}
+                    else:
+                        cluster_result[file_name][map_traject[c]['track_id']] = {"cluster": f"{CLASSES[i_c]}_cluster_{i}", "score": len(cl)}
+                if len(traject) < nb_min_cluster_amount:
+                    plot_trajectories(traject, ax,
+                                      color=COLORS[int(i % len(COLORS))] if len(cl) > nb_min_cluster_amount else 'black')
+            plt.savefig(f"{args.output_path}/{cam_id}_{CLASSES[i_c]}_{args.distance_type}_cluster_anomaly.png")
+            logging.info(f"{'-'*10} DONE CLASS {CLASSES[i_c]} {'-'*10}")
+    # write_results(cluster_result, args.trajectories_path, args.input_videos_path, args.output_path)
+    write_results_to_json_file(cluster_result, args.trajectories_path, args.output_path)
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--trajectories_path", type=str)
+    parser.add_argument("--distance_type", default="dtw", type=str, choices=('dtw', 'euclid', 'euclid_window'))
+    parser.add_argument("--input_videos_path", type=str)
+    parser.add_argument("--output_path", type=str)
+    _args = parser.parse_args()
+    if not os.path.exists(_args.output_path):
+        os.mkdir(_args.output_path)
+        os.mkdir(os.path.join(_args.output_path, "videos"))
+
+    logging.basicConfig(filename=f"{_args.output_path}/log.txt", level=logging.INFO)
+    main(_args)
