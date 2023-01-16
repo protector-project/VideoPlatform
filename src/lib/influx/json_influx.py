@@ -131,7 +131,7 @@ class InfluxJson:
         json_body = []
         normal_trajectories = 0
         abnormal_trajectories = 0
-        max_score = -1
+        max_score = 0
         for re in traject_result:
             if "ANOMALY" in re[5]:
                 abnormal_trajectories += 1
