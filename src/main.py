@@ -188,7 +188,7 @@ def main(opt):
 		pred_len = opt.traj_anomaly_detection.pred_len
 
 	base = os.path.basename(opt.input_video)
-	f_trajectories_anomaly_result = open(opt.traj_anomaly_results_path)
+	f_trajectories_anomaly_result = open(opt.traj_anomaly_detection_cluster.traj_anomaly_results_path)
 	trajectories_anomaly_results = json.load(f_trajectories_anomaly_result)
 	trajectories_anomaly_result = trajectories_anomaly_results[base]
 
@@ -303,12 +303,12 @@ def main(opt):
 			frame_time = vid_cap.get(cv2.CAP_PROP_POS_MSEC) / 1000
 			influx.insertAnomaly(opt.input_name, float(anomaly_score), opt.input_video, frame_time)
 
-		if opt.traj_anomaly_detection.enabled and trajectories_anomaly_result is not None:
+		if opt.traj_anomaly_detection_cluster.enabled and trajectories_anomaly_result is not None:
 			traject_result = trajectories_anomaly_result[frame_id]
 			imc = plot_traj_anomaly(im0s, traject_result)
 			if opt.produce_files.enable:
 				frame_time = vid_cap.get(cv2.CAP_PROP_POS_MSEC) / 1000
-				video_output.write_tracking(imc)
+				video_output.write_traj_anomaly_detection(imc)
 				json_output.add_traj_anomaly(opt.input_name, opt.input_video, frame_id, frame_time, traject_result)
 
 		frame_id += 1
