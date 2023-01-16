@@ -173,8 +173,9 @@ def main(opt):
                         if label != 'person':
                             label_count = object_detector.count_label(frame_dets, label)
                             json_output.add_vehicles(opt.input_name, opt.input_video, label, label_count, frame_time)
-                if len(frame_trajs):
-                    json_output.add_trajectories(opt.input_name, opt.input_video, frame_id, frame_trajs, frame_time)
+                if opt.tracking.enabled:
+                    if len(frame_trajs):
+                        json_output.add_trajectories(opt.input_name, opt.input_video, frame_id, frame_trajs, frame_time)
 
             frame_id += 1
             pbar.update(1)
