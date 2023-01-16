@@ -91,6 +91,39 @@ class InfluxJson:
         self.outputfile.write(str(json_body))
         self.outputfile.write("\n")
         # print(json_body)
+        
+    def add_trajectories(self, camera_name, clip_name, frame_id, trajectories, timestamp):
+        current_time = self.start_time_video + datetime.timedelta(seconds=timestamp)
+        current_time = current_time.strftime("%m/%d/%Y %H:%M:%S")
+        json_body = []
+        for *xyxy, track_id, class_id, conf in trajectories:
+            bbox = xyxy
+            bbox_left = bbox[0]
+            bbox_top = bbox[1]
+            bbox_w = bbox[2] - bbox[0]
+            bbox_h = bbox[3] - bbox[1]
+            json_body.append(
+                {
+                    "time": current_time,
+                    "measurement": "trajectories",
+                    "tags": {
+                        "camera": camera_name,
+                        "file_name": clip_name
+                    },
+                    "fields": {
+                        "frame_id": frame_id,
+                        "track_id": track_id,
+                        "bbox_left": bbox_left,
+                        "bbox_top": bbox_top,
+                        "bbox_w": bbox_w,
+                        "bbox_h": bbox_h,
+                        "class_id": class_id,
+                        "conf": conf,
+                    },
+                }
+            )
+        self.outputfile.write(str(json_body))
+        self.outputfile.write("\n")
 
     def add_traj_anomaly(self, camera_name, clip_name, frame_id, timestamp, traject_result):
         current_time = self.start_time_video + datetime.timedelta(seconds=timestamp)

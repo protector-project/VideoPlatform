@@ -78,3 +78,32 @@ class InfluxClient:
                 }
             )
         self.client.write_points(json_body)
+
+    def insert_trajectory(self, camera_name, clip_name, trajectories):
+        json_body = []
+        for *xyxy, track_id, class_id, conf in trajectories:
+            bbox = xyxy
+            bbox_left = bbox[0]
+            bbox_top = bbox[1]
+            bbox_w = bbox[2] - bbox[0]
+            bbox_h = bbox[3] - bbox[1]
+            json_body.append(
+                {
+                    "measurement": "trajectories",
+                    "tags": {
+                        "camera": camera_name,
+                        "file_name": clip_name
+                    },
+                    "fields": {
+                        "frame_id": frame_id,
+                        "track_id": track_id,
+                        "bbox_left": bbox_left,
+                        "bbox_top": bbox_top,
+                        "bbox_w": bbox_w,
+                        "bbox_h": bbox_h,
+                        "class_id": class_id,
+                        "conf": conf,
+                    },
+                }
+            )
+        self.client.write_points(json_body)
