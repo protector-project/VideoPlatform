@@ -324,8 +324,12 @@ def main(opt):
     
         ################################################ video anomaly detection (trajectory) ################################################
         if opt.traj_anomaly_detection_cluster.enabled and trajectories_anomaly_result is not None:
-            traject_result = trajectories_anomaly_result[frame_id]
-            imc = plot_traj_anomaly(im0s, traject_result)
+            if str(frame_id) in trajectories_anomaly_result:
+                traject_result = trajectories_anomaly_result[str(frame_id)]
+                imc = plot_traj_anomaly(im0s, traject_result)
+            else:
+                imc = im0s
+                traject_result = []
             if opt.produce_files.enable:
                 frame_time = vid_cap.get(cv2.CAP_PROP_POS_MSEC) / 1000
                 video_output.write_traj_anomaly_detection(imc)
@@ -337,6 +341,9 @@ def main(opt):
     if opt.produce_files.enable:
         json_output.close()
         video_output.release_all()
+
+    if opt.traj_anomaly_detection_cluster.enabled:
+        f_trajectories_anomaly_result.close()
 
 
 if __name__ == "__main__":
